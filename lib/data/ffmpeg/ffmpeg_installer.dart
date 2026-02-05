@@ -48,7 +48,7 @@ class FfmpegInstaller {
       await _downloadWithTimeout('https://evermeet.cx/ffplay/getrelease/zip', ffplayZip.path);
     } on DioException catch (e) {
       throw FfmpegInstallException(
-        'Could not download ffmpeg/ffplay automatically. On macOS desktop apps this often means network entitlement is missing or outbound network is blocked. '\
+        'Could not download ffmpeg/ffplay automatically. On macOS desktop apps this often means network entitlement is missing or outbound network is blocked. '
         'Please use "Pick ffmpeg path..." / "Pick ffplay path..." as fallback.',
         e,
       );

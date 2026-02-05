@@ -23,6 +23,7 @@ Gym Capture is a desktop app for gymnastics competitions. It continuously record
 ## Notes
 - Blackmagic DeckLink requires Blackmagic Desktop Video driver.
 - UVC capture cards typically appear as camera devices (AVFoundation on macOS, DirectShow on Windows).
+- On macOS, automatic installer requires outbound network access from the app sandbox (`com.apple.security.network.client`).
 
 
 ## Localization
