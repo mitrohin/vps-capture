@@ -45,7 +45,7 @@ class FfmpegInstaller {
 
     try {
       await _downloadWithTimeout('https://evermeet.cx/ffmpeg/getrelease/zip', ffmpegZip.path);
-      await _downloadWithTimeout('https://evermeet.cx/ffplay/getrelease/zip', ffplayZip.path);
+      await _downloadWithTimeout('https://evermeet.cx/ffmpeg/get/ffplay/zip', ffplayZip.path);
     } on DioException catch (e) {
       throw FfmpegInstallException(
         'Could not download ffmpeg/ffplay automatically. On macOS desktop apps this often means network entitlement is missing or outbound network is blocked. '
@@ -55,7 +55,7 @@ class FfmpegInstaller {
     }
 
     final ffmpegPath = await _extractSingleBinary(ffmpegZip, bin, 'ffmpeg');
-    final ffplayPath = await _extractFfplayWithFallback(primaryZip: ffplayZip, fallbackZip: ffmpegZip, outputDir: bin);
+    final ffplayPath = await _extractSingleBinary(ffplayZip, bin, 'ffplay');
 
     await Process.run('chmod', ['+x', ffmpegPath]);
     await Process.run('chmod', ['+x', ffplayPath]);
@@ -103,6 +103,8 @@ class FfmpegInstaller {
     return FfmpegInstallResult(ffmpegPath: ffmpegPath, ffplayPath: ffplayPath);
   }
 
+
+
   Future<void> _downloadWithTimeout(String url, String path) async {
     await _dio.download(
       url,
@@ -140,15 +142,4 @@ class FfmpegInstaller {
     throw FfmpegInstallException('Binary $name not found in archive ${zipFile.path}');
   }
 
-  Future<String> _extractFfplayWithFallback({
-    required File primaryZip,
-    required File fallbackZip,
-    required Directory outputDir,
-  }) async {
-    try {
-      return await _extractSingleBinary(primaryZip, outputDir, 'ffplay');
-    } on FfmpegInstallException {
-      return _extractSingleBinary(fallbackZip, outputDir, 'ffplay');
-    }
-  }
 }
