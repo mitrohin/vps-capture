@@ -14,6 +14,7 @@ class BufferRecorder {
   final CaptureBackend _backend;
   Process? _process;
   Timer? _cleanupTimer;
+  bool _isStopping = false;
 
   bool get isRunning => _process != null;
 
@@ -41,14 +42,20 @@ class BufferRecorder {
       p.join(segmentsDir.path, 'seg_%Y%m%d_%H%M%S.ts'),
     ];
 
+    _isStopping = false;
     _process = await Process.start(config.ffmpegPath!, args);
-    _process!.stderr.transform(SystemEncoding().decoder).listen(onLog);
-    _process!.stdout.transform(SystemEncoding().decoder).listen(onLog);
-    _process!.exitCode.then((_) {
-      final hadProcess = _process != null;
-      _process = null;
+    final process = _process!;
+    process.stderr.transform(SystemEncoding().decoder).listen(onLog);
+    process.stdout.transform(SystemEncoding().decoder).listen(onLog);
+    process.exitCode.then((_) {
+      final isCurrentProcess = identical(_process, process);
+      final isUnexpectedExit = isCurrentProcess && !_isStopping;
+      if (isCurrentProcess) {
+        _process = null;
+      }
       _cleanupTimer?.cancel();
-      if (hadProcess) onUnexpectedExit();
+      _isStopping = false;
+      if (isUnexpectedExit) onUnexpectedExit();
     });
 
     _cleanupTimer?.cancel();
@@ -65,12 +72,15 @@ class BufferRecorder {
     final process = _process;
     if (process == null) return;
 
+    _isStopping = true;
     process.kill(ProcessSignal.sigint);
     await process.exitCode.timeout(const Duration(seconds: 2), onTimeout: () {
       process.kill();
       return process.exitCode;
     });
-    _process = null;
+    if (identical(_process, process)) {
+      _process = null;
+    }
   }
 
   Future<void> _cleanSegments(Directory dir, {required int maxAgeMinutes}) async {
