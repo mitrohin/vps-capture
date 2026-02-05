@@ -117,13 +117,26 @@ class FfmpegInstaller {
   Future<String> _extractSingleBinary(File zipFile, Directory outputDir, String name) async {
     final bytes = await zipFile.readAsBytes();
     final archive = ZipDecoder().decodeBytes(bytes);
+    ArchiveFile? matched;
+
     for (final file in archive.files) {
-      if (file.isFile && p.basename(file.name) == name) {
-        final outPath = p.join(outputDir.path, name);
-        await File(outPath).writeAsBytes(file.content as List<int>);
-        return outPath;
+      if (!file.isFile) continue;
+      final baseName = p.basename(file.name).toLowerCase();
+      final normalizedName = baseName.endsWith('.exe') ? baseName.substring(0, baseName.length - 4) : baseName;
+      final target = name.toLowerCase();
+
+      if (normalizedName == target || normalizedName.startsWith('$target-')) {
+        matched = file;
+        break;
       }
     }
+
+    if (matched != null) {
+      final outPath = p.join(outputDir.path, name);
+      await File(outPath).writeAsBytes(matched.content as List<int>);
+      return outPath;
+    }
+
     throw FfmpegInstallException('Binary $name not found in archive ${zipFile.path}');
   }
 }
