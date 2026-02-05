@@ -41,14 +41,13 @@ class FfmpegInstaller {
   Future<FfmpegInstallResult> _installMac() async {
     final bin = await _appPaths.binDir();
     final ffmpegZip = File(p.join(bin.path, 'ffmpeg.zip'));
-    final ffplayZip = File(p.join(bin.path, 'ffplay.zip'));
 
     try {
       await _downloadWithTimeout('https://evermeet.cx/ffmpeg/getrelease/zip', ffmpegZip.path);
       await _downloadWithTimeout('https://evermeet.cx/ffmpeg/get/ffplay/zip', ffplayZip.path);
     } on DioException catch (e) {
       throw FfmpegInstallException(
-        'Could not download ffmpeg/ffplay automatically. On macOS desktop apps this often means network entitlement is missing or outbound network is blocked. '
+        'Could not download ffmpeg automatically. On macOS desktop apps this often means network entitlement is missing or outbound network is blocked. '
         'Please use "Pick ffmpeg path..." / "Pick ffplay path..." as fallback.',
         e,
       );
@@ -58,7 +57,9 @@ class FfmpegInstaller {
     final ffplayPath = await _extractSingleBinary(ffplayZip, bin, 'ffplay');
 
     await Process.run('chmod', ['+x', ffmpegPath]);
-    await Process.run('chmod', ['+x', ffplayPath]);
+    if (ffplayPath != ffmpegPath) {
+      await Process.run('chmod', ['+x', ffplayPath]);
+    }
 
     return FfmpegInstallResult(ffmpegPath: ffmpegPath, ffplayPath: ffplayPath);
   }
