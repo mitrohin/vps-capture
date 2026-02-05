@@ -130,10 +130,14 @@ class AppController extends StateNotifier<AppState> {
       if (res == null || res.files.single.path == null) return;
       final file = File(res.files.single.path!);
       final content = await file.readAsString();
-      final schedule = _parser.parse(content);
-      state = state.copyWith(schedule: schedule, selectedIndex: schedule.isNotEmpty ? 0 : null);
-      _appendLog('Loaded schedule: ${schedule.length} items.');
+      applySchedule(content, source: 'file');
     });
+  }
+
+  void applySchedule(String content, {String source = 'ui'}) {
+    final schedule = _parser.parse(content);
+    state = state.copyWith(schedule: schedule, selectedIndex: schedule.isNotEmpty ? 0 : null);
+    _appendLog('Loaded schedule from $source: ${schedule.length} items.');
   }
 
   Future<void> enterWorkMode() async {

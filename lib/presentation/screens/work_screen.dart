@@ -7,14 +7,34 @@ import '../../state/app_controller.dart';
 import '../widgets/log_panel.dart';
 import '../widgets/schedule_list.dart';
 
-class WorkScreen extends ConsumerWidget {
+class WorkScreen extends ConsumerStatefulWidget {
   const WorkScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<WorkScreen> createState() => _WorkScreenState();
+}
+
+class _WorkScreenState extends ConsumerState<WorkScreen> {
+  late final TextEditingController _scheduleInputController;
+
+  @override
+  void initState() {
+    super.initState();
+    _scheduleInputController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _scheduleInputController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final state = ref.watch(appControllerProvider);
     final controller = ref.read(appControllerProvider.notifier);
     final lang = state.config.languageCode;
+    final hasSchedule = state.schedule.isNotEmpty;
 
     return Shortcuts(
       shortcuts: {
@@ -67,12 +87,34 @@ class WorkScreen extends ConsumerWidget {
               padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
+                  TextField(
+                    controller: _scheduleInputController,
+                    minLines: 3,
+                    maxLines: 5,
+                    decoration: InputDecoration(
+                      border: const OutlineInputBorder(),
+                      labelText: AppLocalizations.tr(lang, 'scheduleEditorLabel'),
+                      hintText: AppLocalizations.tr(lang, 'scheduleEditorHint'),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: OutlinedButton.icon(
+                      onPressed: () => controller.applySchedule(_scheduleInputController.text),
+                      icon: const Icon(Icons.playlist_add_check),
+                      label: Text(AppLocalizations.tr(lang, 'applySchedule')),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
                   Row(
                     children: [
-                      FilledButton(onPressed: controller.startMark, child: Text(AppLocalizations.tr(lang, 'startHotkey'))),
-                      const SizedBox(width: 8),
-                      FilledButton(onPressed: controller.stopMark, child: Text(AppLocalizations.tr(lang, 'stopHotkey'))),
-                      const SizedBox(width: 8),
+                      if (hasSchedule)
+                        FilledButton(onPressed: controller.startMark, child: Text(AppLocalizations.tr(lang, 'startHotkey'))),
+                      if (hasSchedule) const SizedBox(width: 8),
+                      if (hasSchedule)
+                        FilledButton(onPressed: controller.stopMark, child: Text(AppLocalizations.tr(lang, 'stopHotkey'))),
+                      if (hasSchedule) const SizedBox(width: 8),
                       OutlinedButton(onPressed: controller.postpone, child: Text(AppLocalizations.tr(lang, 'postponeHotkey'))),
                     ],
                   ),
