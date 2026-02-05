@@ -199,24 +199,36 @@ class AppController extends StateNotifier<AppState> {
     await _guard(() async {
       final stop = DateTime.now();
       await _capture.stopBuffer();
-      final out = await _capture.exportClip(
-        config: state.config,
-        start: state.currentMarkStartedAt!,
-        stop: stop,
-        fio: item.fio,
-        apparatus: item.apparatus,
-        onLog: _appendLog,
-      );
-      final updated = [...state.schedule];
-      updated[state.selectedIndex!] = item.copyWith(status: ScheduleItemStatus.done, clearStartedAt: true);
-      final nextIndex = _findNextPending(updated, state.selectedIndex!);
-      state = state.copyWith(
-        schedule: updated,
-        isRecordingMarked: false,
-        clearMarkStart: true,
-        selectedIndex: nextIndex,
-      );
-      _appendLog('STOP complete, clip saved: $out');
+
+      try {
+        final out = await _capture.exportClip(
+          config: state.config,
+          start: state.currentMarkStartedAt!,
+          stop: stop,
+          fio: item.fio,
+          apparatus: item.apparatus,
+          onLog: _appendLog,
+        );
+        final updated = [...state.schedule];
+        updated[state.selectedIndex!] = item.copyWith(status: ScheduleItemStatus.done, clearStartedAt: true);
+        final nextIndex = _findNextPending(updated, state.selectedIndex!);
+        state = state.copyWith(
+          schedule: updated,
+          isRecordingMarked: false,
+          clearMarkStart: true,
+          selectedIndex: nextIndex,
+        );
+        _appendLog('STOP complete, clip saved: $out');
+      } catch (_) {
+        final updated = [...state.schedule];
+        updated[state.selectedIndex!] = item.copyWith(status: ScheduleItemStatus.pending, clearStartedAt: true);
+        state = state.copyWith(
+          schedule: updated,
+          isRecordingMarked: false,
+          clearMarkStart: true,
+        );
+        rethrow;
+      }
     });
   }
 
