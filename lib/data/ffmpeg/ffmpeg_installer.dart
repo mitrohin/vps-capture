@@ -41,6 +41,7 @@ class FfmpegInstaller {
   Future<FfmpegInstallResult> _installMac() async {
     final bin = await _appPaths.binDir();
     final ffmpegZip = File(p.join(bin.path, 'ffmpeg.zip'));
+    final ffplayZip = File(p.join(bin.path, 'ffplay.zip'));
 
     try {
       await _downloadWithTimeout('https://evermeet.cx/ffmpeg/getrelease/zip', ffmpegZip.path);
@@ -142,5 +143,4 @@ class FfmpegInstaller {
 
     throw FfmpegInstallException('Binary $name not found in archive ${zipFile.path}');
   }
-
 }
