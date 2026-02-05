@@ -55,7 +55,7 @@ class FfmpegInstaller {
     }
 
     final ffmpegPath = await _extractSingleBinary(ffmpegZip, bin, 'ffmpeg');
-    final ffplayPath = await _extractSingleBinary(ffplayZip, bin, 'ffplay');
+    final ffplayPath = await _extractFfplayWithFallback(primaryZip: ffplayZip, fallbackZip: ffmpegZip, outputDir: bin);
 
     await Process.run('chmod', ['+x', ffmpegPath]);
     await Process.run('chmod', ['+x', ffplayPath]);
@@ -138,5 +138,17 @@ class FfmpegInstaller {
     }
 
     throw FfmpegInstallException('Binary $name not found in archive ${zipFile.path}');
+  }
+
+  Future<String> _extractFfplayWithFallback({
+    required File primaryZip,
+    required File fallbackZip,
+    required Directory outputDir,
+  }) async {
+    try {
+      return await _extractSingleBinary(primaryZip, outputDir, 'ffplay');
+    } on FfmpegInstallException {
+      return _extractSingleBinary(fallbackZip, outputDir, 'ffplay');
+    }
   }
 }
