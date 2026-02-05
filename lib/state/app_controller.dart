@@ -96,8 +96,20 @@ class AppController extends StateNotifier<AppState> {
     if (cfg.ffmpegPath == null || cfg.sourceKind == null) return;
     await _guard(() async {
       _appendLog('Scanning devices...');
-      final devices = await _scanner.scan(ffmpegPath: cfg.ffmpegPath!, kind: cfg.sourceKind!);
-      state = state.copyWith(devices: devices);
+      final scannedDevices = await _scanner.scan(ffmpegPath: cfg.ffmpegPath!, kind: cfg.sourceKind!);
+      final devices = _deduplicateDevices(scannedDevices);
+
+      final selectedDevice = cfg.selectedDevice == null
+          ? null
+          : devices.where((d) => _isSameDevice(d, cfg.selectedDevice!)).firstOrNull;
+
+      state = state.copyWith(
+        devices: devices,
+        config: cfg.copyWith(
+          selectedDevice: selectedDevice,
+          clearDevice: selectedDevice == null,
+        ),
+      );
       _appendLog('Found ${devices.length} devices.');
     });
   }
@@ -312,6 +324,22 @@ class AppController extends StateNotifier<AppState> {
   void _appendLog(String line) {
     final next = [...state.logs, '[${DateTime.now().toIso8601String()}] $line'];
     state = state.copyWith(logs: next.takeLast(400).toList());
+  }
+
+  List<CaptureDevice> _deduplicateDevices(List<CaptureDevice> devices) {
+    final uniqueByKey = <String, CaptureDevice>{};
+    for (final device in devices) {
+      final key = '${device.id}|${device.name}|${device.audioId ?? ''}|${device.audioName ?? ''}';
+      uniqueByKey.putIfAbsent(key, () => device);
+    }
+    return uniqueByKey.values.toList();
+  }
+
+  bool _isSameDevice(CaptureDevice left, CaptureDevice right) {
+    return left.id == right.id &&
+        left.name == right.name &&
+        left.audioId == right.audioId &&
+        left.audioName == right.audioName;
   }
 }
 
