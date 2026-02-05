@@ -13,6 +13,19 @@ class FfmpegInstallResult {
   final String ffplayPath;
 }
 
+class FfmpegInstallException implements Exception {
+  const FfmpegInstallException(this.message, [this.cause]);
+
+  final String message;
+  final Object? cause;
+
+  @override
+  String toString() {
+    if (cause == null) return message;
+    return '$message\nCause: $cause';
+  }
+}
+
 class FfmpegInstaller {
   FfmpegInstaller(this._appPaths, this._dio);
 
@@ -22,7 +35,7 @@ class FfmpegInstaller {
   Future<FfmpegInstallResult> installAutomatically() async {
     if (Platform.isMacOS) return _installMac();
     if (Platform.isWindows) return _installWindows();
-    throw UnsupportedError('Only macOS and Windows are supported');
+    throw const FfmpegInstallException('Automatic installation is supported only on macOS and Windows.');
   }
 
   Future<FfmpegInstallResult> _installMac() async {
@@ -30,8 +43,16 @@ class FfmpegInstaller {
     final ffmpegZip = File(p.join(bin.path, 'ffmpeg.zip'));
     final ffplayZip = File(p.join(bin.path, 'ffplay.zip'));
 
-    await _dio.download('https://evermeet.cx/ffmpeg/getrelease/zip', ffmpegZip.path);
-    await _dio.download('https://evermeet.cx/ffplay/getrelease/zip', ffplayZip.path);
+    try {
+      await _downloadWithTimeout('https://evermeet.cx/ffmpeg/getrelease/zip', ffmpegZip.path);
+      await _downloadWithTimeout('https://evermeet.cx/ffplay/getrelease/zip', ffplayZip.path);
+    } on DioException catch (e) {
+      throw FfmpegInstallException(
+        'Could not download ffmpeg/ffplay automatically. On macOS desktop apps this often means network entitlement is missing or outbound network is blocked. '\
+        'Please use "Pick ffmpeg path..." / "Pick ffplay path..." as fallback.',
+        e,
+      );
+    }
 
     final ffmpegPath = await _extractSingleBinary(ffmpegZip, bin, 'ffmpeg');
     final ffplayPath = await _extractSingleBinary(ffplayZip, bin, 'ffplay');
@@ -45,10 +66,18 @@ class FfmpegInstaller {
   Future<FfmpegInstallResult> _installWindows() async {
     final bin = await _appPaths.binDir();
     final zipFile = File(p.join(bin.path, 'ffmpeg-release-essentials.zip'));
-    await _dio.download(
-      'https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip',
-      zipFile.path,
-    );
+
+    try {
+      await _downloadWithTimeout(
+        'https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip',
+        zipFile.path,
+      );
+    } on DioException catch (e) {
+      throw FfmpegInstallException(
+        'Could not download ffmpeg build from gyan.dev. Check internet access/firewall or use manual path selection.',
+        e,
+      );
+    }
 
     final bytes = await zipFile.readAsBytes();
     final archive = ZipDecoder().decodeBytes(bytes);
@@ -68,10 +97,21 @@ class FfmpegInstaller {
     }
 
     if (ffmpegPath == null || ffplayPath == null) {
-      throw Exception('Could not extract ffmpeg/ffplay from downloaded archive.');
+      throw const FfmpegInstallException('Could not extract ffmpeg/ffplay from downloaded archive.');
     }
 
     return FfmpegInstallResult(ffmpegPath: ffmpegPath, ffplayPath: ffplayPath);
+  }
+
+  Future<void> _downloadWithTimeout(String url, String path) async {
+    await _dio.download(
+      url,
+      path,
+      options: Options(
+        sendTimeout: const Duration(seconds: 30),
+        receiveTimeout: const Duration(minutes: 2),
+      ),
+    );
   }
 
   Future<String> _extractSingleBinary(File zipFile, Directory outputDir, String name) async {
@@ -84,6 +124,6 @@ class FfmpegInstaller {
         return outPath;
       }
     }
-    throw Exception('Binary $name not found in archive ${zipFile.path}');
+    throw FfmpegInstallException('Binary $name not found in archive ${zipFile.path}');
   }
 }

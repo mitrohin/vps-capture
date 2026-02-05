@@ -271,7 +271,9 @@ class AppController extends StateNotifier<AppState> {
       await work();
     } catch (e, st) {
       _appendLog('ERROR: $e');
-      _appendLog('$st');
+      if (kDebugMode) {
+        _appendLog('$st');
+      }
     } finally {
       state = state.copyWith(isLoading: false);
     }
