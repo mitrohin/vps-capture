@@ -145,14 +145,8 @@ class AppController extends StateNotifier<AppState> {
       _appendLog('Setup incomplete: choose ffmpeg, output folder, source, and device.');
       return;
     }
-    await _guard(() async {
-      await _capture.startBuffer(state.config, _appendLog, () {
-        _appendLog('Buffer process exited unexpectedly. Returning to setup mode.');
-        state = state.copyWith(mode: AppMode.setup);
-      });
-      state = state.copyWith(mode: AppMode.work);
-      _appendLog('Buffer started. Entered work mode.');
-    });
+    state = state.copyWith(mode: AppMode.work);
+    _appendLog('Entered work mode. Buffer will start on START and stop on STOP.');
   }
 
   Future<void> backToSetup() async {
@@ -169,11 +163,29 @@ class AppController extends StateNotifier<AppState> {
       return;
     }
 
-    final start = DateTime.now().subtract(Duration(seconds: state.config.preRollSeconds));
-    final updated = [...state.schedule];
-    updated[state.selectedIndex!] = item.copyWith(status: ScheduleItemStatus.active, startedAt: start);
-    state = state.copyWith(schedule: updated, isRecordingMarked: true, currentMarkStartedAt: start);
-    _appendLog('START marked for ${item.label}.');
+    await _guard(() async {
+      await _capture.startBuffer(state.config, _appendLog, () {
+        _appendLog('Buffer process exited unexpectedly. Recording mark cancelled.');
+        final currentItem = state.selectedItem;
+        if (currentItem == null || state.selectedIndex == null) return;
+        final reset = [...state.schedule];
+        reset[state.selectedIndex!] = currentItem.copyWith(
+          status: ScheduleItemStatus.pending,
+          clearStartedAt: true,
+        );
+        state = state.copyWith(
+          schedule: reset,
+          isRecordingMarked: false,
+          clearMarkStart: true,
+        );
+      });
+
+      final start = DateTime.now();
+      final updated = [...state.schedule];
+      updated[state.selectedIndex!] = item.copyWith(status: ScheduleItemStatus.active, startedAt: start);
+      state = state.copyWith(schedule: updated, isRecordingMarked: true, currentMarkStartedAt: start);
+      _appendLog('START marked for ${item.label}. Buffer recording started.');
+    });
   }
 
   Future<void> stopMark() async {
@@ -185,10 +197,12 @@ class AppController extends StateNotifier<AppState> {
     }
 
     await _guard(() async {
+      final stop = DateTime.now();
+      await _capture.stopBuffer();
       final out = await _capture.exportClip(
         config: state.config,
         start: state.currentMarkStartedAt!,
-        stop: DateTime.now(),
+        stop: stop,
         fio: item.fio,
         apparatus: item.apparatus,
         onLog: _appendLog,
