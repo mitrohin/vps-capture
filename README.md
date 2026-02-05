@@ -29,5 +29,3 @@ Gym Capture is a desktop app for gymnastics competitions. It continuously record
 - Switch language in Setup screen or Work screen (language button).
 - Localization dictionary lives in `lib/localization/app_localizations.dart`.
 - To add a new language, add code to `supportedLanguages` and a map entry in `dictionary`.
-
-- If auto install fails due to network policy, use manual "Pick ffmpeg path..." and "Pick ffplay path...".
