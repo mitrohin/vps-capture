@@ -62,10 +62,15 @@ class BufferRecorder {
   Future<void> stop() async {
     _cleanupTimer?.cancel();
     _cleanupTimer = null;
-    if (_process != null) {
-      _process!.kill();
-      _process = null;
-    }
+    final process = _process;
+    if (process == null) return;
+
+    process.kill(ProcessSignal.sigint);
+    await process.exitCode.timeout(const Duration(seconds: 2), onTimeout: () {
+      process.kill();
+      return process.exitCode;
+    });
+    _process = null;
   }
 
   Future<void> _cleanSegments(Directory dir, {required int maxAgeMinutes}) async {

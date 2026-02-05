@@ -9,8 +9,10 @@ class CaptureBackend {
 
     switch (source) {
       case CaptureSourceKind.avFoundation:
-        final audio = device.audioId ?? 'none';
-        return ['-f', 'avfoundation', '-framerate', '${config.fps}', '-i', '${device.id}:$audio'];
+        // Some macOS setups fail to initialize AVFoundation input when a microphone
+        // is auto-attached to a video source. Use video-only capture by default for
+        // stable segment buffering.
+        return ['-f', 'avfoundation', '-framerate', '${config.fps}', '-i', '${device.id}:none'];
       case CaptureSourceKind.directShow:
         final input = device.audioName == null
             ? 'video="${device.name}"'
