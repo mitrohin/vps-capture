@@ -20,7 +20,12 @@ class ClipExporter {
     required void Function(String line) onLog,
   }) async {
     final segmentsDir = await _paths.segmentsDir();
-    final files = await _pickSegments(segmentsDir, start, stop);
+    final files = await _pickSegments(
+      segmentsDir,
+      start,
+      stop,
+      segmentSeconds: config.segmentSeconds,
+    );
     if (files.isEmpty) throw Exception('No segments found for selected time range.');
 
     final listFile = await _paths.concatListFile();
@@ -84,18 +89,40 @@ class ClipExporter {
     return process.exitCode;
   }
 
-  Future<List<File>> _pickSegments(Directory dir, DateTime start, DateTime stop) async {
+  Future<List<File>> _pickSegments(
+    Directory dir,
+    DateTime start,
+    DateTime stop, {
+    required int segmentSeconds,
+  }) async {
+    final segmentDuration = Duration(seconds: segmentSeconds.clamp(1, 60));
+    final desiredWindowStart = start;
+    final desiredWindowEnd = stop;
     final files = <File>[];
     await for (final entity in dir.list()) {
       if (entity is File && entity.path.endsWith('.ts')) {
-        final stat = await entity.stat();
-        if (!stat.modified.isBefore(start) && !stat.modified.isAfter(stop)) {
+        final segmentStart = _segmentStart(entity.path) ?? (await entity.stat()).modified;
+        final segmentEnd = segmentStart.add(segmentDuration);
+        final intersectsWindow = segmentStart.isBefore(desiredWindowEnd) && segmentEnd.isAfter(desiredWindowStart);
+        if (intersectsWindow) {
           files.add(entity);
         }
       }
     }
     files.sort((a, b) => a.path.compareTo(b.path));
     return files;
+  }
+
+  DateTime? _segmentStart(String path) {
+    final name = p.basename(path);
+    final match = RegExp(r'^seg_(\d{8})_(\d{6})\.ts$').firstMatch(name);
+    if (match == null) return null;
+    final date = match.group(1)!;
+    final time = match.group(2)!;
+    return DateTime.tryParse(
+      '${date.substring(0, 4)}-${date.substring(4, 6)}-${date.substring(6, 8)} '
+      '${time.substring(0, 2)}:${time.substring(2, 4)}:${time.substring(4, 6)}',
+    );
   }
 
   String _defaultCodec() {
