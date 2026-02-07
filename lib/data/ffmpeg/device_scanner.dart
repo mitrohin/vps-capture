@@ -56,38 +56,80 @@ class DeviceScanner {
   }
 
   Future<List<CaptureDevice>> _scanDshow(String ffmpegPath) async {
-    final result = await Process.run(ffmpegPath, [
-      '-hide_banner',
-      '-list_devices',
-      'true',
-      '-f',
-      'dshow',
-      '-i',
-      'dummy'
-    ]);
-    final log = '${result.stderr}\n${result.stdout}';
-    final lines = log.split(RegExp(r'\r?\n'));
-    final videos = <String>[];
-    final audios = <String>[];
-    var mode = '';
-    final rx = RegExp(r'"(.+?)"');
-    for (final line in lines) {
-      if (line.contains('DirectShow video devices')) mode = 'v';
-      if (line.contains('DirectShow audio devices')) mode = 'a';
-      final m = rx.firstMatch(line);
-      if (m != null) {
-        if (mode == 'v') videos.add(m.group(1)!);
-        if (mode == 'a') audios.add(m.group(1)!);
-      }
+    final logs = <String>[];
+    final listDevicesTries = [
+      ['-hide_banner', '-list_devices', 'true', '-f', 'dshow', '-i', 'dummy'],
+      ['-hide_banner', '-list_devices', '1', '-f', 'dshow', '-i', 'dummy'],
+      ['-hide_banner', '-list_devices', 'true', '-f', 'dshow', '-i', 'video=dummy'],
+    ];
+
+    for (final args in listDevicesTries) {
+      final result = await Process.run(ffmpegPath, args);
+      logs.add('${result.stderr}\n${result.stdout}');
     }
-    return videos
+
+    final sourceResult = await Process.run(ffmpegPath, ['-hide_banner', '-sources', 'dshow']);
+    logs.add('${sourceResult.stderr}\n${sourceResult.stdout}');
+
+    final parsed = _parseDshowLogs(logs);
+    return parsed.videos
         .map((v) => CaptureDevice(
               id: v,
               name: v,
-              audioId: audios.isNotEmpty ? audios.first : null,
-              audioName: audios.isNotEmpty ? audios.first : null,
+              audioId: parsed.audios.isNotEmpty ? parsed.audios.first : null,
+              audioName: parsed.audios.isNotEmpty ? parsed.audios.first : null,
             ))
         .toList();
+  }
+
+  ({List<String> videos, List<String> audios}) _parseDshowLogs(List<String> logs) {
+    final videos = <String>[];
+    final audios = <String>[];
+
+    for (final log in logs) {
+      var mode = '';
+      for (final rawLine in log.split(RegExp(r'\r?\n'))) {
+        final line = rawLine.trim();
+        if (line.contains('DirectShow video devices')) {
+          mode = 'v';
+          continue;
+        }
+        if (line.contains('DirectShow audio devices')) {
+          mode = 'a';
+          continue;
+        }
+
+        final quoted = _extractQuotedValue(line);
+        if (quoted != null && !line.contains('Alternative name')) {
+          if (mode == 'v') _addUnique(videos, quoted);
+          if (mode == 'a') _addUnique(audios, quoted);
+        }
+
+        // Fallback parser for `ffmpeg -sources dshow` output:
+        //   * video="Device"
+        //   * audio="Device"
+        final source = RegExp(r'^\*\s*(video|audio)="(.+?)"$', caseSensitive: false).firstMatch(line);
+        if (source != null) {
+          final type = source.group(1)!.toLowerCase();
+          final name = source.group(2)!;
+          if (type == 'video') _addUnique(videos, name);
+          if (type == 'audio') _addUnique(audios, name);
+        }
+      }
+    }
+
+    return (videos: videos, audios: audios);
+  }
+
+  String? _extractQuotedValue(String line) {
+    final m = RegExp(r'"(.+?)"').firstMatch(line);
+    return m?.group(1);
+  }
+
+  void _addUnique(List<String> items, String value) {
+    if (!items.contains(value)) {
+      items.add(value);
+    }
   }
 
   Future<List<CaptureDevice>> _scanDecklink(String ffmpegPath) async {
