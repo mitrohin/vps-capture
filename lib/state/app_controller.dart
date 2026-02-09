@@ -167,9 +167,10 @@ class AppController extends StateNotifier<AppState> {
     state = state.copyWith(mode: AppMode.setup, isPreviewRunning: false, isRecordingMarked: false, clearMarkStart: true);
   }
 
-  Future<void> startMark() async {
-    final item = state.selectedItem;
-    if (item == null) return;
+  Future<void> startMark([int? index]) async {
+    final targetIndex = index ?? state.selectedIndex;
+    if (targetIndex == null || targetIndex < 0 || targetIndex >= state.schedule.length) return;
+    final item = state.schedule[targetIndex];
     if (state.isRecordingMarked) {
       _appendLog('Cannot START: recording already marked.');
       return;
@@ -178,10 +179,11 @@ class AppController extends StateNotifier<AppState> {
     await _guard(() async {
       await _capture.startBuffer(state.config, _appendLog, () {
         _appendLog('Buffer process exited unexpectedly. Recording mark cancelled.');
-        final currentItem = state.selectedItem;
-        if (currentItem == null || state.selectedIndex == null) return;
+        final activeIndex = state.schedule.indexWhere((entry) => entry.status == ScheduleItemStatus.active);
+        if (activeIndex == -1) return;
+        final currentItem = state.schedule[activeIndex];
         final reset = [...state.schedule];
-        reset[state.selectedIndex!] = currentItem.copyWith(
+        reset[activeIndex] = currentItem.copyWith(
           status: ScheduleItemStatus.pending,
           clearStartedAt: true,
         );
@@ -194,15 +196,22 @@ class AppController extends StateNotifier<AppState> {
 
       final start = DateTime.now();
       final updated = [...state.schedule];
-      updated[state.selectedIndex!] = item.copyWith(status: ScheduleItemStatus.active, startedAt: start);
-      state = state.copyWith(schedule: updated, isRecordingMarked: true, currentMarkStartedAt: start);
+      updated[targetIndex] = item.copyWith(status: ScheduleItemStatus.active, startedAt: start);
+      state = state.copyWith(
+        schedule: updated,
+        selectedIndex: targetIndex,
+        isRecordingMarked: true,
+        currentMarkStartedAt: start,
+      );
       _appendLog('START marked for ${item.label}. Buffer recording started.');
     });
   }
 
-  Future<void> stopMark() async {
-    final item = state.selectedItem;
-    if (item == null) return;
+  Future<void> stopMark([int? index]) async {
+    final activeIndex = state.schedule.indexWhere((entry) => entry.status == ScheduleItemStatus.active);
+    if (activeIndex == -1) return;
+    if (index != null && index != activeIndex) return;
+    final item = state.schedule[activeIndex];
     if (!state.isRecordingMarked || state.currentMarkStartedAt == null) {
       _appendLog('Cannot STOP: no active START mark.');
       return;
@@ -222,8 +231,8 @@ class AppController extends StateNotifier<AppState> {
           onLog: _appendLog,
         );
         final updated = [...state.schedule];
-        updated[state.selectedIndex!] = item.copyWith(status: ScheduleItemStatus.done, clearStartedAt: true);
-        final nextIndex = _findNextPending(updated, state.selectedIndex!);
+        updated[activeIndex] = item.copyWith(status: ScheduleItemStatus.done, clearStartedAt: true);
+        final nextIndex = _findNextReady(updated, activeIndex);
         state = state.copyWith(
           schedule: updated,
           isRecordingMarked: false,
@@ -233,7 +242,7 @@ class AppController extends StateNotifier<AppState> {
         _appendLog('STOP complete, clip saved: $out');
       } catch (_) {
         final updated = [...state.schedule];
-        updated[state.selectedIndex!] = item.copyWith(status: ScheduleItemStatus.pending, clearStartedAt: true);
+        updated[activeIndex] = item.copyWith(status: ScheduleItemStatus.pending, clearStartedAt: true);
         state = state.copyWith(
           schedule: updated,
           isRecordingMarked: false,
@@ -244,13 +253,30 @@ class AppController extends StateNotifier<AppState> {
     });
   }
 
-  void postpone() {
-    final item = state.selectedItem;
-    if (item == null) return;
+  void postpone([int? index]) {
+    final targetIndex = index ?? state.selectedIndex;
+    if (targetIndex == null || targetIndex < 0 || targetIndex >= state.schedule.length) return;
+
     final updated = [...state.schedule];
-    updated[state.selectedIndex!] = item.copyWith(status: ScheduleItemStatus.postponed, clearStartedAt: true);
-    state = state.copyWith(schedule: updated, selectedIndex: _findNextPending(updated, state.selectedIndex!));
+    final item = updated.removeAt(targetIndex).copyWith(
+      status: ScheduleItemStatus.postponed,
+      clearStartedAt: true,
+    );
+    updated.add(item);
+    final fallbackIndex = updated.isEmpty ? null : (targetIndex >= updated.length ? updated.length - 1 : targetIndex);
+    state = state.copyWith(schedule: updated, selectedIndex: fallbackIndex);
     _appendLog('Marked as POSTPONED: ${item.label}.');
+  }
+
+  void restoreItem(int index) {
+    if (index < 0 || index >= state.schedule.length) return;
+    final item = state.schedule[index];
+    if (item.status != ScheduleItemStatus.done) return;
+
+    final updated = [...state.schedule];
+    updated[index] = item.copyWith(status: ScheduleItemStatus.pending, clearStartedAt: true);
+    state = state.copyWith(schedule: updated, selectedIndex: index);
+    _appendLog('Restored item: ${item.label}.');
   }
 
   void selectIndex(int index) {
@@ -284,9 +310,14 @@ class AppController extends StateNotifier<AppState> {
     });
   }
 
-  int _findNextPending(List<ScheduleItem> items, int from) {
+  int _findNextReady(List<ScheduleItem> items, int from) {
     for (var i = from + 1; i < items.length; i++) {
-      if (items[i].status == ScheduleItemStatus.pending) return i;
+      final status = items[i].status;
+      if (status == ScheduleItemStatus.pending || status == ScheduleItemStatus.postponed) return i;
+    }
+    for (var i = 0; i < from; i++) {
+      final status = items[i].status;
+      if (status == ScheduleItemStatus.pending || status == ScheduleItemStatus.postponed) return i;
     }
     return from;
   }

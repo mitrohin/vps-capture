@@ -9,12 +9,22 @@ class ScheduleList extends StatelessWidget {
     required this.items,
     required this.selectedIndex,
     required this.onSelect,
+    required this.onStart,
+    required this.onStop,
+    required this.onPostpone,
+    required this.onRestore,
+    required this.isRecordingMarked,
     required this.languageCode,
   });
 
   final List<ScheduleItem> items;
   final int? selectedIndex;
   final ValueChanged<int> onSelect;
+  final Future<void> Function(int index) onStart;
+  final Future<void> Function(int index) onStop;
+  final ValueChanged<int> onPostpone;
+  final ValueChanged<int> onRestore;
+  final bool isRecordingMarked;
   final String languageCode;
 
   @override
@@ -24,6 +34,9 @@ class ScheduleList extends StatelessWidget {
       itemBuilder: (context, index) {
         final item = items[index];
         final isSelected = selectedIndex == index;
+        final isActive = item.status == ScheduleItemStatus.active;
+        final isDone = item.status == ScheduleItemStatus.done;
+        final canStartThisItem = !isRecordingMarked || isActive;
         return ListTile(
           selected: isSelected,
           onTap: () => onSelect(index),
@@ -33,7 +46,35 @@ class ScheduleList extends StatelessWidget {
               decoration: item.status == ScheduleItemStatus.done ? TextDecoration.lineThrough : null,
             ),
           ),
-          trailing: Text(_statusText(item.status)),
+          trailing: Wrap(
+            spacing: 4,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Text(_statusText(item.status)),
+              if (isDone)
+                IconButton(
+                  tooltip: AppLocalizations.tr(languageCode, 'restoreEntry'),
+                  onPressed: () => onRestore(index),
+                  icon: const Icon(Icons.undo),
+                )
+              else ...[
+                IconButton(
+                  tooltip: isActive
+                      ? AppLocalizations.tr(languageCode, 'stopHotkey')
+                      : AppLocalizations.tr(languageCode, 'startHotkey'),
+                  onPressed: canStartThisItem
+                      ? () => isActive ? onStop(index) : onStart(index)
+                      : null,
+                  icon: Icon(isActive ? Icons.stop : Icons.play_arrow),
+                ),
+                IconButton(
+                  tooltip: AppLocalizations.tr(languageCode, 'postponeHotkey'),
+                  onPressed: () => onPostpone(index),
+                  icon: const Icon(Icons.keyboard_double_arrow_down),
+                ),
+              ],
+            ],
+          ),
         );
       },
     );
