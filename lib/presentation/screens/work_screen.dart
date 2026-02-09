@@ -34,7 +34,6 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
     final state = ref.watch(appControllerProvider);
     final controller = ref.read(appControllerProvider.notifier);
     final lang = state.config.languageCode;
-    final hasSchedule = state.schedule.isNotEmpty;
 
     return Shortcuts(
       shortcuts: {
@@ -107,23 +106,16 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      if (hasSchedule)
-                        FilledButton(onPressed: controller.startMark, child: Text(AppLocalizations.tr(lang, 'startHotkey'))),
-                      if (hasSchedule) const SizedBox(width: 8),
-                      if (hasSchedule)
-                        FilledButton(onPressed: controller.stopMark, child: Text(AppLocalizations.tr(lang, 'stopHotkey'))),
-                      if (hasSchedule) const SizedBox(width: 8),
-                      OutlinedButton(onPressed: controller.postpone, child: Text(AppLocalizations.tr(lang, 'postponeHotkey'))),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
                   Expanded(
                     child: ScheduleList(
                       items: state.schedule,
                       selectedIndex: state.selectedIndex,
                       onSelect: controller.selectIndex,
+                      onStart: controller.startMark,
+                      onStop: controller.stopMark,
+                      onPostpone: controller.postpone,
+                      onRestore: controller.restoreItem,
+                      isRecordingMarked: state.isRecordingMarked,
                       languageCode: lang,
                     ),
                   ),
