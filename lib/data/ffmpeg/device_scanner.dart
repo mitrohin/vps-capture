@@ -90,11 +90,11 @@ class DeviceScanner {
       var mode = '';
       for (final rawLine in log.split(RegExp(r'\r?\n'))) {
         final line = rawLine.trim();
-        if (line.contains('DirectShow video devices')) {
+        if (line.contains('DirectShow video devices') || (line.contains('dshow')) && line.contains('video')) {
           mode = 'v';
           continue;
         }
-        if (line.contains('DirectShow audio devices')) {
+        if (line.contains('DirectShow audio devices') || (line.contains('dshow')) && line.contains('audio')) {
           mode = 'a';
           continue;
         }
@@ -109,11 +109,17 @@ class DeviceScanner {
         //   * video="Device"
         //   * audio="Device"
         final source = RegExp(r'^\*\s*(video|audio)="(.+?)"$', caseSensitive: false).firstMatch(line);
+        final sourcesAlternative = RegExp(r'^([^ ]+)\s+\[(.+?)\]\s+\((video|audio)\)$', caseSensitive: false).firstMatch(line);
         if (source != null) {
           final type = source.group(1)!.toLowerCase();
           final name = source.group(2)!;
           if (type == 'video') _addUnique(videos, name);
           if (type == 'audio') _addUnique(audios, name);
+        } else if (sourcesAlternative != null) {
+            final type = sourcesAlternative.group(3)!.toLowerCase();
+            final name = sourcesAlternative.group(2)!;
+            if (type == 'video') _addUnique(videos, name);
+            if (type == 'audio') _addUnique(audios, name);
         }
       }
     }

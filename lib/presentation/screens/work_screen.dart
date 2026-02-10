@@ -36,12 +36,13 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
     final lang = state.config.languageCode;
 
     return Shortcuts(
+      // Fixed keys S, X, D for start, stop, postpone -> Ctrl+S, Ctrl+X, Ctrl+D and changed in app_localizations.dart
       shortcuts: {
         LogicalKeySet(LogicalKeyboardKey.arrowUp): const _MoveUpIntent(),
         LogicalKeySet(LogicalKeyboardKey.arrowDown): const _MoveDownIntent(),
-        LogicalKeySet(LogicalKeyboardKey.keyS): const _StartIntent(),
-        LogicalKeySet(LogicalKeyboardKey.keyX): const _StopIntent(),
-        LogicalKeySet(LogicalKeyboardKey.keyD): const _PostponeIntent(),
+        LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyS): const _StartIntent(),
+        LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyX): const _StopIntent(),
+        LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyD): const _PostponeIntent(),
       },
       child: Actions(
         actions: {
