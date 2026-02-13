@@ -90,10 +90,13 @@ class DeviceScanner {
     final parsed = _parseDshowLogs(logs);
     return parsed.videos
         .map((v) => CaptureDevice(
-              id: v,
-              name: v,
-              audioId: parsed.audios.isNotEmpty ? parsed.audios.first : null,
-              audioName: parsed.audios.isNotEmpty ? parsed.audios.first : null,
+              // For DirectShow we keep the human-readable label in `name`, but
+              // use alternative names (`@device_*`) for ffmpeg input because
+              // they are ASCII-safe and work for Cyrillic device labels.
+              id: v.inputName,
+              name: v.displayName,
+              audioId: parsed.audios.isNotEmpty ? parsed.audios.first.inputName : null,
+              audioName: parsed.audios.isNotEmpty ? parsed.audios.first.displayName : null,
             ))
         .toList();
   }
@@ -108,9 +111,11 @@ class DeviceScanner {
     }
   }
 
-  ({List<String> videos, List<String> audios}) _parseDshowLogs(List<String> logs) {
-    final videos = <String>[];
-    final audios = <String>[];
+  ({List<_DshowDevice> videos, List<_DshowDevice> audios}) _parseDshowLogs(List<String> logs) {
+    final videos = <_DshowDevice>[];
+    final audios = <_DshowDevice>[];
+    _DshowDevice? pendingVideo;
+    _DshowDevice? pendingAudio;
 
     for (final log in logs) {
       var mode = '';
@@ -127,8 +132,24 @@ class DeviceScanner {
 
         final quoted = _extractQuotedValue(line);
         if (quoted != null && !line.contains('Alternative name')) {
-          if (mode == 'v') _addUnique(videos, quoted);
-          if (mode == 'a') _addUnique(audios, quoted);
+          final device = _DshowDevice(displayName: quoted, inputName: quoted);
+          if (mode == 'v') {
+            _addUnique(videos, device);
+            pendingVideo = device;
+          }
+          if (mode == 'a') {
+            _addUnique(audios, device);
+            pendingAudio = device;
+          }
+        }
+
+        if (line.contains('Alternative name')) {
+          if (quoted != null && mode == 'v' && pendingVideo != null) {
+            _replaceInputName(videos, pendingVideo, quoted);
+          }
+          if (quoted != null && mode == 'a' && pendingAudio != null) {
+            _replaceInputName(audios, pendingAudio, quoted);
+          }
         }
 
         // Fallback parser for `ffmpeg -sources dshow` output:
@@ -139,13 +160,13 @@ class DeviceScanner {
         if (source != null) {
           final type = source.group(1)!.toLowerCase();
           final name = source.group(2)!;
-          if (type == 'video') _addUnique(videos, name);
-          if (type == 'audio') _addUnique(audios, name);
+          if (type == 'video') _addUnique(videos, _DshowDevice(displayName: name, inputName: name));
+          if (type == 'audio') _addUnique(audios, _DshowDevice(displayName: name, inputName: name));
         } else if (sourcesAlternative != null) {
-            final type = sourcesAlternative.group(3)!.toLowerCase();
-            final name = sourcesAlternative.group(2)!;
-            if (type == 'video') _addUnique(videos, name);
-            if (type == 'audio') _addUnique(audios, name);
+          final type = sourcesAlternative.group(3)!.toLowerCase();
+          final name = sourcesAlternative.group(2)!;
+          if (type == 'video') _addUnique(videos, _DshowDevice(displayName: name, inputName: name));
+          if (type == 'audio') _addUnique(audios, _DshowDevice(displayName: name, inputName: name));
         }
       }
     }
@@ -158,10 +179,16 @@ class DeviceScanner {
     return m?.group(1);
   }
 
-  void _addUnique(List<String> items, String value) {
-    if (!items.contains(value)) {
+  void _addUnique(List<_DshowDevice> items, _DshowDevice value) {
+    if (!items.any((item) => item.displayName == value.displayName)) {
       items.add(value);
     }
+  }
+
+  void _replaceInputName(List<_DshowDevice> items, _DshowDevice target, String inputName) {
+    final index = items.indexOf(target);
+    if (index == -1) return;
+    items[index] = _DshowDevice(displayName: target.displayName, inputName: inputName);
   }
 
   Future<List<CaptureDevice>> _scanDecklink(String ffmpegPath) async {
@@ -187,4 +214,11 @@ class DeviceScanner {
     }
     return devices;
   }
+}
+
+class _DshowDevice {
+  const _DshowDevice({required this.displayName, required this.inputName});
+
+  final String displayName;
+  final String inputName;
 }
