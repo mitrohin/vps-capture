@@ -1,5 +1,5 @@
 import 'dart:io';
-
+import 'dart:convert';
 import '../../domain/models/capture_device.dart';
 
 class DeviceScanner {
@@ -64,12 +64,28 @@ class DeviceScanner {
     ];
 
     for (final args in listDevicesTries) {
-      final result = await Process.run(ffmpegPath, args);
-      logs.add('${result.stderr}\n${result.stdout}');
+      final result = await Process.run(
+        ffmpegPath, 
+        args,
+        stdoutEncoding: null,  
+        stderrEncoding: null,  
+      );
+      final stderrBytes = result.stderr as List<int>;
+      final stdoutBytes = result.stdout as List<int>;
+      final decodedStderr = _decodeBytes(stderrBytes);
+      final decodedStdout = _decodeBytes(stdoutBytes);
+      final combined = decodedStderr + (decodedStdout.isNotEmpty ? '\n$decodedStdout' : '');
+      logs.add(combined);
     }
 
-    final sourceResult = await Process.run(ffmpegPath, ['-hide_banner', '-sources', 'dshow']);
-    logs.add('${sourceResult.stderr}\n${sourceResult.stdout}');
+    final sourceResult = await Process.run(ffmpegPath, ['-hide_banner', '-sources', 'dshow'], stdoutEncoding: null, stderrEncoding: null);
+    final sourceStderrBytes = sourceResult.stderr as List<int>;
+    final sourceStdoutBytes = sourceResult.stdout as List<int>;
+    final decodedSourceStderr = _decodeBytes(sourceStderrBytes);
+    final decodedSourceStdout = _decodeBytes(sourceStdoutBytes);
+    
+    final combinedSource = decodedSourceStderr + (decodedSourceStdout.isNotEmpty ? '\n$decodedSourceStdout' : '');
+    logs.add(combinedSource);
 
     final parsed = _parseDshowLogs(logs);
     return parsed.videos
@@ -80,6 +96,16 @@ class DeviceScanner {
               audioName: parsed.audios.isNotEmpty ? parsed.audios.first : null,
             ))
         .toList();
+  }
+
+  String _decodeBytes(List<int> bytes) {
+    if (bytes.isEmpty) return '';
+    try {
+      final decoded = utf8.decode(bytes);
+      return decoded;
+    } catch (e) {
+      return String.fromCharCodes(bytes);
+    }
   }
 
   ({List<String> videos, List<String> audios}) _parseDshowLogs(List<String> logs) {
