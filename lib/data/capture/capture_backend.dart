@@ -14,10 +14,11 @@ class CaptureBackend {
         // stable segment buffering.
         return ['-f', 'avfoundation', '-framerate', '${config.fps}', '-i', '${device.id}:none'];
       case CaptureSourceKind.directShow:
-        // When using commands for the ffmpeg subprocess without buckets ("")
-        final input = device.audioName == null
-            ? 'video=${device.name}'
-            : 'video=${device.name}:audio=${device.audioName}';
+        // `id`/`audioId` can store alternative DirectShow names (`@device_*`),
+        // which are safer for non-ASCII device labels.
+        final input = device.audioId == null
+            ? 'video=${device.id}'
+            : 'video=${device.id}:audio=${device.audioId}';
         return ['-f', 'dshow', '-i', input];
       case CaptureSourceKind.deckLink:
         return ['-f', 'decklink', '-i', device.name];
