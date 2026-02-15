@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:path/path.dart' as path;
 
 import '../storage/app_paths.dart';
 
@@ -31,8 +32,25 @@ class FfmpegLocator {
     String? ffplay;
 
     if (Platform.isWindows) {
-      ffmpeg = await _where('ffmpeg.exe');
-      ffplay = await _where('ffplay.exe');
+
+      final appDir = path.dirname(Platform.resolvedExecutable);
+      final alreadyFfmepgPaths = [
+        path.join(appDir, 'ffmpeg', 'bin', 'ffmpeg.exe'),
+        path.join(appDir, 'ffmpeg', 'ffmpeg.exe'),
+        path.join(appDir, 'ffmpeg.exe')
+        ];
+      for (final ffmpegPath in alreadyFfmepgPaths){
+        final ffmepgFile = File(ffmpegPath);
+        if (await ffmepgFile.exists()) {
+          ffmpeg = ffmepgFile.path;
+          final ffplayPath = File(path.join(path.dirname(ffmpegPath), 'ffplay.exe'));
+          if (await ffplayPath.exists()) ffplay = ffplayPath.path;
+          break;
+        }
+      }
+
+      ffmpeg ??= await _where('ffmpeg.exe');
+      ffplay ??= await _where('ffplay.exe');
     } else {
       for (final dir in candidates) {
         final ffmpegFile = File('$dir/ffmpeg');
