@@ -6,7 +6,8 @@ class AppConfig {
     this.ffplayPath,
     this.outputDir,
     this.sourceKind,
-    this.selectedDevice,
+    this.selectedVideoDevice,
+    this.selectedAudioDevice,
     this.codec,
     this.videoBitrate = '8M',
     this.fps = 30,
@@ -20,7 +21,8 @@ class AppConfig {
   final String? ffplayPath;
   final String? outputDir;
   final CaptureSourceKind? sourceKind;
-  final CaptureDevice? selectedDevice;
+  final CaptureDevice? selectedVideoDevice;
+  final CaptureDevice? selectedAudioDevice;
   final String? codec;
   final String videoBitrate;
   final int fps;
@@ -33,14 +35,16 @@ class AppConfig {
       (ffmpegPath?.isNotEmpty ?? false) &&
       (outputDir?.isNotEmpty ?? false) &&
       sourceKind != null &&
-      selectedDevice != null;
+      selectedVideoDevice != null &&
+      selectedAudioDevice != null;
 
   AppConfig copyWith({
     String? ffmpegPath,
     String? ffplayPath,
     String? outputDir,
     CaptureSourceKind? sourceKind,
-    CaptureDevice? selectedDevice,
+    CaptureDevice? selectedVideoDevice,
+    CaptureDevice? selectedAudioDevice,
     String? codec,
     String? videoBitrate,
     int? fps,
@@ -48,14 +52,16 @@ class AppConfig {
     int? bufferMinutes,
     int? preRollSeconds,
     String? languageCode,
-    bool clearDevice = false,
+    bool clearVideoDevice = false,
+    bool clearAudioDevice = false,
   }) {
     return AppConfig(
       ffmpegPath: ffmpegPath ?? this.ffmpegPath,
       ffplayPath: ffplayPath ?? this.ffplayPath,
       outputDir: outputDir ?? this.outputDir,
       sourceKind: sourceKind ?? this.sourceKind,
-      selectedDevice: clearDevice ? null : (selectedDevice ?? this.selectedDevice),
+      selectedVideoDevice: clearVideoDevice ? null : (selectedVideoDevice ?? this.selectedVideoDevice),
+      selectedAudioDevice: clearAudioDevice ? null : (selectedAudioDevice ?? this.selectedAudioDevice),
       codec: codec ?? this.codec,
       videoBitrate: videoBitrate ?? this.videoBitrate,
       fps: fps ?? this.fps,

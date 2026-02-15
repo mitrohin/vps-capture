@@ -63,7 +63,8 @@ class AppController extends StateNotifier<AppState> {
       ffplayPath: _stringOrNull(_prefs!.getString('ffplayPath')) ?? located.ffplayPath,
       outputDir: _stringOrNull(_prefs!.getString('outputDir')),
       sourceKind: _readSource(_prefs!.getString('sourceKind')),
-      selectedDevice: _readDevice(_prefs!.getString('selectedDevice')),
+      selectedVideoDevice: _readDevice(_prefs!.getString('selectedVideoDevice')),
+      selectedAudioDevice: _readDevice(_prefs!.getString('selectedAudioDevice')),
       codec: _stringOrNull(_prefs!.getString('codec')) ?? codec,
       videoBitrate: _prefs!.getString('videoBitrate') ?? '8M',
       fps: _prefs!.getInt('fps') ?? 30,
@@ -99,15 +100,21 @@ class AppController extends StateNotifier<AppState> {
       final scannedDevices = await _scanner.scan(ffmpegPath: cfg.ffmpegPath!, kind: cfg.sourceKind!);
       final devices = _deduplicateDevices(scannedDevices);
 
-      final selectedDevice = cfg.selectedDevice == null
+      final selectedVideo = cfg.selectedVideoDevice == null
           ? null
-          : devices.where((d) => _isSameDevice(d, cfg.selectedDevice!)).firstOrNull;
+          : devices.where((d) => _isSameDevice(d, cfg.selectedVideoDevice!)).firstOrNull;
+      
+      final selectedAudio = cfg.selectedAudioDevice == null
+          ? null
+          : devices.where((d) => _isSameDevice(d, cfg.selectedAudioDevice!)).firstOrNull;
 
       state = state.copyWith(
         devices: devices,
         config: cfg.copyWith(
-          selectedDevice: selectedDevice,
-          clearDevice: selectedDevice == null,
+          selectedVideoDevice: selectedVideo,
+          selectedAudioDevice: selectedAudio,
+          clearVideoDevice: selectedVideo == null,
+          clearAudioDevice: selectedAudio == null
         ),
       );
       _appendLog('Found ${devices.length} devices.');
@@ -122,7 +129,8 @@ class AppController extends StateNotifier<AppState> {
     await prefs.setString('ffplayPath', config.ffplayPath ?? '');
     await prefs.setString('outputDir', config.outputDir ?? '');
     await prefs.setString('sourceKind', config.sourceKind?.name ?? '');
-    await prefs.setString('selectedDevice', config.selectedDevice == null ? '' : jsonEncode(config.selectedDevice!.toJson()));
+    await prefs.setString('selectedDevice', config.selectedVideoDevice == null ? '' : jsonEncode(config.selectedVideoDevice!.toJson()));
+    await prefs.setString('selectedDevice', config.selectedAudioDevice == null ? '' : jsonEncode(config.selectedAudioDevice!.toJson()));
     await prefs.setString('codec', config.codec ?? '');
     await prefs.setString('videoBitrate', config.videoBitrate);
     await prefs.setInt('fps', config.fps);

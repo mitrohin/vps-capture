@@ -104,7 +104,7 @@ class SetupScreen extends ConsumerWidget {
                   .map((s) => DropdownMenuItem(value: s, child: Text(s.name)))
                   .toList(),
               onChanged: (value) async {
-                await controller.updateConfig(cfg.copyWith(sourceKind: value, clearDevice: true));
+                await controller.updateConfig(cfg.copyWith(sourceKind: value, clearVideoDevice: true, clearAudioDevice: true));
               },
             ),
             const SizedBox(height: 8),
@@ -116,17 +116,57 @@ class SetupScreen extends ConsumerWidget {
               const SizedBox(width: 12),
               if (state.devices.isNotEmpty)
                 Expanded(
-                  child: DropdownButton<CaptureDevice>(
-                    value: cfg.selectedDevice,
-                    isExpanded: true,
-                    items: state.devices
-                        .map((d) => DropdownMenuItem(value: d, child: Text(d.displayLabel)))
-                        .toList(),
-                    onChanged: (value) async {
-                      if (value != null) {
-                        await controller.updateConfig(cfg.copyWith(selectedDevice: value));
-                      }
-                    },
+                  child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(AppLocalizations.tr(lang, 'detectedVideoDevices')),
+                                const SizedBox(height: 4),
+                                DropdownButton<CaptureDevice>(
+                                value: cfg.selectedVideoDevice,
+                                isExpanded: true,
+                                hint: Text(AppLocalizations.tr(lang, 'selectedVideoDevices')),
+                                items: state.devices
+                                    .where((d) => d.type == DeviceType.video)
+                                    .map((d) => DropdownMenuItem(value: d, child: Text(d.displayLabel)))
+                                    .toList(),
+                                onChanged: (value) async {
+                                  if (value != null) {
+                                    await controller.updateConfig(cfg.copyWith(selectedVideoDevice: value));
+                                  }
+                                },
+                              ),
+                              ],
+                          ), 
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                              child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                      Text(AppLocalizations.tr(lang, 'detectedAudioDevices')),
+                                      const SizedBox(height: 4),
+                                      DropdownButton<CaptureDevice>(
+                                      value: cfg.selectedAudioDevice,
+                                      isExpanded: true,
+                                      hint: Text(AppLocalizations.tr(lang, 'selectedAudioDevices')),
+                                      items: state.devices
+                                          .where((d) => d.type == DeviceType.audio)
+                                          .map((d) => DropdownMenuItem(value: d, child: Text(d.displayLabel)))
+                                          .toList(),
+                                      onChanged: (value) async {
+                                        if (value != null) {
+                                          await controller.updateConfig(cfg.copyWith(selectedAudioDevice: value));
+                                        }
+                                      },
+                                    ),
+                                  ],
+                              ),
+                        ),
+                      ]
                   ),
                 ),
             ]),
