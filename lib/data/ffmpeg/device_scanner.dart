@@ -21,8 +21,7 @@ class DeviceScanner {
     final result = await Process.run(ffmpegPath, ['-f', 'avfoundation', '-list_devices', 'true', '-i', '']);
     final log = '${result.stderr}\n${result.stdout}';
     final lines = log.split(RegExp(r'\r?\n'));
-    final video = <CaptureDevice>[];
-    final audio = <CaptureDevice>[];
+    final devices = <CaptureDevice>[];
     var inVideo = false;
     var inAudio = false;
     final rx = RegExp(r'\[(\d+)\]\s+(.+)$');
@@ -41,18 +40,11 @@ class DeviceScanner {
       if (m != null) {
         final id = m.group(1)!;
         final name = m.group(2)!.trim();
-        if (inVideo) video.add(CaptureDevice(id: id, name: name));
-        if (inAudio) audio.add(CaptureDevice(id: id, name: name));
+        if (inVideo) devices.add(CaptureDevice.videoDevice(id: id, name: name));
+        if (inAudio) devices.add(CaptureDevice.audioDevice(id: id, name: name));
       }
     }
-    return video
-        .map((v) => CaptureDevice(
-              id: v.id,
-              name: v.name,
-              audioId: audio.isNotEmpty ? audio.first.id : null,
-              audioName: audio.isNotEmpty ? audio.first.name : null,
-            ))
-        .toList();
+    return devices;
   }
 
   Future<List<CaptureDevice>> _scanDshow(String ffmpegPath) async {
@@ -88,17 +80,21 @@ class DeviceScanner {
     logs.add(combinedSource);
 
     final parsed = _parseDshowLogs(logs);
-    return parsed.videos
-        .map((v) => CaptureDevice(
-              // For DirectShow we keep the human-readable label in `name`, but
-              // use alternative names (`@device_*`) for ffmpeg input because
-              // they are ASCII-safe and work for Cyrillic device labels.
-              id: v.inputName,
-              name: v.displayName,
-              audioId: parsed.audios.isNotEmpty ? parsed.audios.first.inputName : null,
-              audioName: parsed.audios.isNotEmpty ? parsed.audios.first.displayName : null,
-            ))
-        .toList();
+    final devices = <CaptureDevice>[];
+
+  for (final video in parsed.videos) {
+    devices.add(CaptureDevice.videoDevice(
+      id: video.inputName,
+      name: video.displayName,
+    ));
+  }
+  for (final audio in parsed.audios) {
+    devices.add(CaptureDevice.audioDevice(
+      id: audio.inputName,
+      name: audio.displayName,
+    ));
+  }
+    return devices;
   }
 
   String _decodeBytes(List<int> bytes) {
@@ -131,6 +127,7 @@ class DeviceScanner {
         }
 
         final quoted = _extractQuotedValue(line);
+        
         if (quoted != null && !line.contains('Alternative name')) {
           final device = _DshowDevice(displayName: quoted, inputName: quoted);
           if (mode == 'v') {
@@ -145,6 +142,7 @@ class DeviceScanner {
 
         if (line.contains('Alternative name')) {
           if (quoted != null && mode == 'v' && pendingVideo != null) {
+
             _replaceInputName(videos, pendingVideo, quoted);
           }
           if (quoted != null && mode == 'a' && pendingAudio != null) {
@@ -160,17 +158,18 @@ class DeviceScanner {
         if (source != null) {
           final type = source.group(1)!.toLowerCase();
           final name = source.group(2)!;
+          print('$name $type');
           if (type == 'video') _addUnique(videos, _DshowDevice(displayName: name, inputName: name));
           if (type == 'audio') _addUnique(audios, _DshowDevice(displayName: name, inputName: name));
         } else if (sourcesAlternative != null) {
           final type = sourcesAlternative.group(3)!.toLowerCase();
           final name = sourcesAlternative.group(2)!;
+          print('$name $type');
           if (type == 'video') _addUnique(videos, _DshowDevice(displayName: name, inputName: name));
           if (type == 'audio') _addUnique(audios, _DshowDevice(displayName: name, inputName: name));
         }
       }
     }
-
     return (videos: videos, audios: audios);
   }
 
@@ -206,7 +205,7 @@ class DeviceScanner {
         if (m != null) {
           final name = m.group(1)!;
           if (!devices.any((d) => d.name == name)) {
-            devices.add(CaptureDevice(id: name, name: name));
+            devices.add(CaptureDevice.videoDevice(id: name, name: name));
           }
         }
       }
