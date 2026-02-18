@@ -4,22 +4,28 @@ class ScheduleItem {
   ScheduleItem({
     required this.id,
     required this.fio,
-    required this.apparatus,
-    this.city,
+    this.apparatus,
+    required this.city,
     this.status = ScheduleItemStatus.pending,
     this.startedAt,
+    this.threadIndex,
+    this.typeIndex
   });
 
   final String id;
   final String fio;
-  final String apparatus;
-  final String? city;
+  final String? apparatus;
+  final String city;
   final ScheduleItemStatus status;
   final DateTime? startedAt;
+  final int? threadIndex;
+  final int? typeIndex;
 
-  String get label => city == null || city!.isEmpty
-      ? '$fio • $apparatus'
-      : '$fio • $apparatus • $city';
+  String get label => apparatus == null || apparatus!.isEmpty
+      ? '$fio • $city'
+      : '$fio • $city • $apparatus';
+  String get threadLabel => threadIndex == null ? '' : 'T${threadIndex! + 1}';
+  String get typeLabel => typeIndex == null ? '' : 'E${typeIndex! + 1}';
 
   ScheduleItem copyWith({
     String? id,
@@ -29,6 +35,8 @@ class ScheduleItem {
     ScheduleItemStatus? status,
     DateTime? startedAt,
     bool clearStartedAt = false,
+    int? threadIndex,
+    int? typeIndex,
   }) {
     return ScheduleItem(
       id: id ?? this.id,
@@ -37,6 +45,8 @@ class ScheduleItem {
       city: city ?? this.city,
       status: status ?? this.status,
       startedAt: clearStartedAt ? null : (startedAt ?? this.startedAt),
+      threadIndex: threadIndex ?? this.threadIndex,
+      typeIndex: typeIndex ?? this.typeIndex,
     );
   }
 }
