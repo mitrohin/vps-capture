@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../localization/app_localizations.dart';
 import '../../domain/models/schedule_item.dart';
 import '../../state/app_controller.dart';
-import '../widgets/log_panel.dart';
+import '../widgets/gif_titres.dart';
 import '../widgets/schedule_list.dart';
 
 class WorkScreen extends ConsumerStatefulWidget {
@@ -137,187 +137,193 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
                 ),
               ],
             ),
-            body: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
+            body: Column(
                 children: [
-                  TextField(
-                    controller: _scheduleInputController,
-                    minLines: 3,
-                    maxLines: 5,
-                    decoration: InputDecoration(
-                      border: const OutlineInputBorder(),
-                      labelText: AppLocalizations.tr(lang, 'scheduleEditorLabel'),
-                      hintText: AppLocalizations.tr(lang, 'scheduleEditorHint'),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () => controller.applySchedule(_scheduleInputController.text),
-                          icon: const Icon(Icons.playlist_add_check),
-                          label: Text(AppLocalizations.tr(lang, 'applySchedule')),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Container(
-                        width: 150,
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.grey.shade300),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: DropdownButtonHideUnderline(
-                          child: DropdownButton(
-                            value: _selectedThreadFilter,
-                            hint: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 12),
-                              child: Text(AppLocalizations.tr(lang, 'allThreads')),
-                            ),
-                            items: [
-                              DropdownMenuItem(
-                                value: null,
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                                  child: Text(AppLocalizations.tr(lang, 'allThreads')),
-                                ),
-                              ),
-                              ...availableThreads.map((thread) => DropdownMenuItem(
-                                value: thread,
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                                  child: Text('$thread'),
-                                ),
-                              )),
-                            ],
-                            onChanged: (value) {
-                              setState(() {
-                                _selectedThreadFilter = value;
-                                _selectedTypeFilter = null;
-                              });
-                            },
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Container(
-                        width: 150,
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.grey.shade300),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: DropdownButtonHideUnderline(
-                          child: DropdownButton(
-                            value: _selectedTypeFilter,
-                            hint: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 12),
-                              child: Text(AppLocalizations.tr(lang, 'allTypes')),
-                            ),
-                            items: [
-                              DropdownMenuItem(
-                                value: null,
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                                  child: Text(AppLocalizations.tr(lang, 'allTypes')),
-                                ),
-                              ),
-                              ...availableTypes.map((type) => DropdownMenuItem(
-                                value: type,
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                                  child: Text('$type'),
-                                ),
-                              )),
-                            ],
-                            onChanged: (value) {
-                              setState(() {
-                                _selectedTypeFilter = value;
-                              });
-                            },
-                          ),
-                        ),
-                      ),
-                      if (_selectedThreadFilter != null || _selectedTypeFilter != null)
-                        IconButton(
-                          icon: const Icon(Icons.clear),
-                          onPressed: () {
-                            setState(() {
-                              _selectedThreadFilter = null;
-                              _selectedTypeFilter = null;
-                            });
-                          },
-                          tooltip: AppLocalizations.tr(lang, 'resetFilters'),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Row(
-                      children: [
-                          Text(AppLocalizations.tr(lang, 'displayedCounter'),
-                            style: TextStyle(
-                              color: Colors.grey.shade600,
-                              fontSize: 12,
-                            )),
-                          Text('${filteredItems.length}/${state.schedule.length}',
-                            style: TextStyle(
-                              color: Colors.grey.shade600,
-                              fontSize: 12))
-                      ]
-                    ),
-                  ),
-                  const SizedBox(height: 8),
                   Expanded(
-                    child: ScheduleList(
-                      items: filteredItems,
-                      selectedIndex: state.selectedIndex != null 
-                          ? filteredItems.indexWhere((item) => 
-                              item.id == state.schedule[state.selectedIndex!].id)
-                          : null,
-                      onSelect: (filteredIndex) {
-                        final globalIndex = getGlobalIndex(filteredIndex);
-                        if (globalIndex != -1) {
-                          controller.selectIndex(globalIndex);
-                        }
-                      },
-                      onStart: (filteredIndex) async {
-                        final globalIndex = getGlobalIndex(filteredIndex);
-                        if (globalIndex != -1) {
-                          await controller.startMark(globalIndex);
-                        }
-                      },
-                      onStop: (filteredIndex) async {
-                        final globalIndex = getGlobalIndex(filteredIndex);
-                        if (globalIndex != -1) {
-                          await controller.stopMark(globalIndex);
-                        }
-                      },
-                      onPostpone: (filteredIndex) {
-                        final globalIndex = getGlobalIndex(filteredIndex);
-                        if (globalIndex != -1) {
-                          controller.postpone(globalIndex);
-                        }
-                      },
-                      onRestore: (filteredIndex) {
-                        final globalIndex = getGlobalIndex(filteredIndex);
-                        if (globalIndex != -1) {
-                          controller.restoreItem(globalIndex);
-                        }
-                      },
-                      isRecordingMarked: state.isRecordingMarked,
-                      languageCode: lang,
-                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Column(
+                        children: [
+                          TextField(
+                            controller: _scheduleInputController,
+                            minLines: 3,
+                            maxLines: 5,
+                            decoration: InputDecoration(
+                              border: const OutlineInputBorder(),
+                              labelText: AppLocalizations.tr(lang, 'scheduleEditorLabel'),
+                              hintText: AppLocalizations.tr(lang, 'scheduleEditorHint'),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: OutlinedButton.icon(
+                                  onPressed: () => controller.applySchedule(_scheduleInputController.text),
+                                  icon: const Icon(Icons.playlist_add_check),
+                                  label: Text(AppLocalizations.tr(lang, 'applySchedule')),
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              Container(
+                                width: 150,
+                                decoration: BoxDecoration(
+                                  border: Border.all(color: Colors.grey.shade300),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: DropdownButtonHideUnderline(
+                                  child: DropdownButton(
+                                    value: _selectedThreadFilter,
+                                    hint: Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                                      child: Text(AppLocalizations.tr(lang, 'allThreads')),
+                                    ),
+                                    items: [
+                                      DropdownMenuItem(
+                                        value: null,
+                                        child: Padding(
+                                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                                          child: Text(AppLocalizations.tr(lang, 'allThreads')),
+                                        ),
+                                      ),
+                                      ...availableThreads.map((thread) => DropdownMenuItem(
+                                        value: thread,
+                                        child: Padding(
+                                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                                          child: Text('$thread'),
+                                        ),
+                                      )),
+                                    ],
+                                    onChanged: (value) {
+                                      setState(() {
+                                        _selectedThreadFilter = value;
+                                        _selectedTypeFilter = null;
+                                      });
+                                    },
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Container(
+                                width: 150,
+                                decoration: BoxDecoration(
+                                  border: Border.all(color: Colors.grey.shade300),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: DropdownButtonHideUnderline(
+                                  child: DropdownButton(
+                                    value: _selectedTypeFilter,
+                                    hint: Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                                      child: Text(AppLocalizations.tr(lang, 'allTypes')),
+                                    ),
+                                    items: [
+                                      DropdownMenuItem(
+                                        value: null,
+                                        child: Padding(
+                                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                                          child: Text(AppLocalizations.tr(lang, 'allTypes')),
+                                        ),
+                                      ),
+                                      ...availableTypes.map((type) => DropdownMenuItem(
+                                        value: type,
+                                        child: Padding(
+                                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                                          child: Text('$type'),
+                                        ),
+                                      )),
+                                    ],
+                                    onChanged: (value) {
+                                      setState(() {
+                                        _selectedTypeFilter = value;
+                                      });
+                                    },
+                                  ),
+                                ),
+                              ),
+                              if (_selectedThreadFilter != null || _selectedTypeFilter != null)
+                                IconButton(
+                                  icon: const Icon(Icons.clear),
+                                  onPressed: () {
+                                    setState(() {
+                                      _selectedThreadFilter = null;
+                                      _selectedTypeFilter = null;
+                                    });
+                                  },
+                                  tooltip: AppLocalizations.tr(lang, 'resetFilters'),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: Row(
+                              children: [
+                                  Text(AppLocalizations.tr(lang, 'displayedCounter'),
+                                    style: TextStyle(
+                                      color: Colors.grey.shade600,
+                                      fontSize: 12,
+                                    )),
+                                  Text('${filteredItems.length}/${state.schedule.length}',
+                                    style: TextStyle(
+                                      color: Colors.grey.shade600,
+                                      fontSize: 12))
+                              ]
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Expanded(
+                            child: ScheduleList(
+                              items: filteredItems,
+                              selectedIndex: state.selectedIndex != null 
+                                  ? filteredItems.indexWhere((item) => 
+                                      item.id == state.schedule[state.selectedIndex!].id)
+                                  : null,
+                              onSelect: (filteredIndex) {
+                                final globalIndex = getGlobalIndex(filteredIndex);
+                                if (globalIndex != -1) {
+                                  controller.selectIndex(globalIndex);
+                                }
+                              },
+                              onStart: (filteredIndex) async {
+                                final globalIndex = getGlobalIndex(filteredIndex);
+                                if (globalIndex != -1) {
+                                  await controller.startMark(globalIndex);
+                                }
+                              },
+                              onStop: (filteredIndex) async {
+                                final globalIndex = getGlobalIndex(filteredIndex);
+                                if (globalIndex != -1) {
+                                  await controller.stopMark(globalIndex);
+                                }
+                              },
+                              onPostpone: (filteredIndex) {
+                                final globalIndex = getGlobalIndex(filteredIndex);
+                                if (globalIndex != -1) {
+                                  controller.postpone(globalIndex);
+                                }
+                              },
+                              onRestore: (filteredIndex) {
+                                final globalIndex = getGlobalIndex(filteredIndex);
+                                if (globalIndex != -1) {
+                                  controller.restoreItem(globalIndex);
+                                }
+                              },
+                              isRecordingMarked: state.isRecordingMarked,
+                              languageCode: lang,
+                            ),
+                          ),
+                        ]
+                      )
                   ),
-                  LogPanel(logs: state.logs),
+                  ),
+                  GifTitres(fio: 'Иванов Иван', city: 'Москва',lang: lang),
                 ],
               ),
             ),
           ),
         ),
-      ),
-    );
+      );
   }
 }
 
