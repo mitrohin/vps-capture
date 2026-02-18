@@ -22,16 +22,18 @@ class CaptureService {
     required AppConfig config,
     required DateTime start,
     required DateTime stop,
+    required String id,
     required String fio,
-    required String apparatus,
+    required String city,
     required void Function(String line) onLog,
   }) {
     return _clipExporter.exportClip(
       config: config,
       start: start,
       stop: stop,
+      id: id,
       fio: fio,
-      apparatus: apparatus,
+      city: city,
       onLog: onLog,
     );
   }
