@@ -15,8 +15,9 @@ class ClipExporter {
     required AppConfig config,
     required DateTime start,
     required DateTime stop,
+    required String id,
     required String fio,
-    required String apparatus,
+    required String city,
     required void Function(String line) onLog,
   }) async {
     final segmentsDir = await _paths.segmentsDir();
@@ -32,8 +33,9 @@ class ClipExporter {
     final content = files.map((f) => "file '${f.path.replaceAll("'", "''")}'").join('\n');
     await listFile.writeAsString(content);
 
-    final outputName = FileNamer.outputClipName(fio: fio, apparatus: apparatus);
-    final outputPath = p.join(config.outputDir!, outputName);
+    final outputName = FileNamer.outputClipName(id:id ,fio: fio, city: city);
+    final outputFolder = getOutputDir(config.outputDir!, id);
+    final outputPath = p.join(outputFolder!, outputName);
 
     final copyArgs = [
       '-f',
@@ -128,5 +130,28 @@ class ClipExporter {
   String _defaultCodec() {
     if (Platform.isMacOS) return 'h264_videotoolbox';
     return 'libx264';
+  }
+  String? getOutputDir(String mainPath, String id) {
+    final idThread = id.split('-')[0];
+    final idType = id.split('-')[1];
+    try{
+      final directory = Directory(mainPath);
+      final folders = directory.listSync().whereType<Directory>().toList();
+      for (var folder in folders) {
+        final folderName = folder.path.split(Platform.pathSeparator).last;
+        if (folderName.startsWith(idThread)) {
+          final dirThread = Directory(folder.path);
+          if (!dirThread.existsSync()) continue;
+          final typeFolders = dirThread.listSync().whereType<Directory>().toList();
+          return typeFolders[int.parse(idType)-1].path;
+        } else {
+          continue;
+        }
+      }
+    }
+    catch (e) {
+      return mainPath;
+    }
+    return mainPath;
   }
 }
