@@ -26,3 +26,8 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - lib/data/assets/blue.gif
+    - lib/data/assets/red.gif
+    - lib/data/assets/lenta.gif
+    - lib/data/assets/fitness.gif
