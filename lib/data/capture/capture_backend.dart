@@ -20,7 +20,6 @@ class CaptureBackend {
         final input = audioDevice.audioId == null
             ? 'video=${videoDevice.id}'
             : 'video=${videoDevice.id}:audio=${audioDevice.audioId}';
-        print(input);
         return ['-f', 'dshow', '-i', input];
       case CaptureSourceKind.deckLink:
         return ['-f', 'decklink', '-i', videoDevice.name];
