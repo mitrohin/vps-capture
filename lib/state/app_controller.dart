@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:path/path.dart' as p;
 
 import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
@@ -158,6 +159,44 @@ class AppController extends StateNotifier<AppState> {
     final schedule = _parser.parse(content);
     state = state.copyWith(schedule: schedule, selectedIndex: schedule.isNotEmpty ? 0 : null);
     _appendLog('Loaded schedule from $source: ${schedule.length} items.');
+    createStructOutputDir(content, state.config.outputDir!, schedule);
+  }
+
+  void createStructOutputDir(String content, String mainOutputDir, List scheduleList) {
+    try{
+        final lines = content.split(RegExp(r'\r?\n'));
+        int currentThreadIndex = 0;
+        int currentTypeCount = 1;
+
+        for (var i = 0; i < lines.length; i++){
+          final line = lines[i].trim();
+          if (line.isEmpty) continue;
+          if (line.startsWith('/*')) {
+            currentThreadIndex++;
+            final threadPath = p.join(mainOutputDir,'0$currentThreadIndex - ${line.substring(line.indexOf(' ')+1).replaceAll(':', '-')}');
+            final dirThread = Directory(threadPath);
+            if (!dirThread.existsSync()) {
+              dirThread.createSync(recursive: true);
+            }
+            try { 
+              final splittedTypeCount = line.split(' ')[0];
+              currentTypeCount = int.parse(splittedTypeCount.substring(2));
+            }
+            catch (e) {
+              currentTypeCount = 1;
+            }
+            if (currentTypeCount > 0) {
+              for (int type = 0; type < currentTypeCount; type++) {
+                final typePath = p.join(threadPath, '0${type+1}');
+                final dirType = Directory(typePath);
+                if (!dirType.existsSync()) {
+                  dirType.createSync(recursive: true);
+                }
+              }
+            }
+          }
+        }
+    } catch (e) {}
   }
 
   Future<void> enterWorkMode() async {
@@ -234,8 +273,9 @@ class AppController extends StateNotifier<AppState> {
           config: state.config,
           start: state.currentMarkStartedAt!,
           stop: stop,
+          id: item.id,
           fio: item.fio,
-          apparatus: item.apparatus,
+          city: item.city,
           onLog: _appendLog,
         );
         final updated = [...state.schedule];
