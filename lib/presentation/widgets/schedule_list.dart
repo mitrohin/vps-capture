@@ -65,7 +65,7 @@ class ScheduleList extends StatelessWidget {
                   onPressed: canStartThisItem
                       ? () => isActive ? onStop(index) : onStart(index)
                       : null,
-                  icon: Icon(isActive ? Icons.stop : Icons.play_arrow),
+                  icon: Icon(isActive ? Icons.stop : Icons.adjust),
                 ),
                 IconButton(
                   tooltip: AppLocalizations.tr(languageCode, 'postponeHotkey'),
