@@ -31,7 +31,7 @@ class AppLocalizations {
       'continueToWork': 'Continue to Work Screen',
       'loadSchedule': 'Load schedule',
       'scheduleEditorLabel': 'Schedule input',
-      'scheduleEditorHint': 'One line: FIO;APPARATUS;CITY(optional)',
+      'scheduleEditorHint': 'One line: FIO;CITY;APPARATUS (optional)',
       'applySchedule': 'Apply schedule',
       'backToSetup': 'Back to setup',
       'startHotkey': 'START (Ctrl+S)',
@@ -43,6 +43,10 @@ class AppLocalizations {
       'done': 'DONE',
       'postponed': 'POSTPONED',
       'language': 'Language',
+      'allThreads': 'All threads',
+      'allTypes': 'All types',
+      'resetFilters': 'Reset filters',
+      'displayedCounter': 'Displayed '
     },
     'ru': {
       'appTitle': 'Гим Захват',
@@ -68,7 +72,7 @@ class AppLocalizations {
       'continueToWork': 'Перейти к рабочему экрану',
       'loadSchedule': 'Загрузить расписание',
       'scheduleEditorLabel': 'Ввод расписания',
-      'scheduleEditorHint': 'Одна строка: ФИО;СНАРЯД;ГОРОД(необязательно)',
+      'scheduleEditorHint': 'Одна строка: ФИО;ГОРОД;СНАРЯД (необязательно)',
       'applySchedule': 'Применить расписание',
       'backToSetup': 'Назад к настройке',
       'startHotkey': 'СТАРТ (Ctrl+S)',
@@ -80,6 +84,10 @@ class AppLocalizations {
       'done': 'ГОТОВО',
       'postponed': 'ОТЛОЖЕНО',
       'language': 'Язык',
+      'allThreads': 'Все потоки',
+      'allTypes': 'Все виды',
+      'resetFilters': 'Сбросить фильтры',
+      'displayedCounter': 'Отображено '
     },
     'tr': {
       'appTitle': 'Gym Capture',
@@ -105,7 +113,7 @@ class AppLocalizations {
       'continueToWork': 'Çalışma ekranına geç',
       'loadSchedule': 'Program yükle',
       'scheduleEditorLabel': 'Program girişi',
-      'scheduleEditorHint': 'Her satır: AD SOYAD;EKİPMAN;ŞEHİR(opsiyonel)',
+      'scheduleEditorHint': 'Her satır: AD SOYAD;ŞEHİR;EKİPMAN (opsiyonel)',
       'applySchedule': 'Programı uygula',
       'backToSetup': 'Kuruluma dön',
       'startHotkey': 'BAŞLAT (Ctrl+S)',
@@ -117,6 +125,10 @@ class AppLocalizations {
       'done': 'TAMAM',
       'postponed': 'ERTELENDİ',
       'language': 'Dil',
+      'allThreads': 'Tüm konular',
+      'allTypes': 'Her türlü',
+      'resetFilters': 'Filtreleri sıfırla',
+      'displayedCounter': 'Görüntülenen '
     },
   };
 
