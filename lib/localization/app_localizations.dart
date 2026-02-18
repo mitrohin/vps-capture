@@ -46,7 +46,11 @@ class AppLocalizations {
       'allThreads': 'All threads',
       'allTypes': 'All types',
       'resetFilters': 'Reset filters',
-      'displayedCounter': 'Displayed '
+      'displayedCounter': 'Displayed ',
+      'nameGifsTitre': 'GIF-titles',
+      'labelTimerGifs': 'Timer GIFs (sec)',
+      'hintTimerGifs': 'Enter a number',
+      'suffixTimerGifs': 'sec'
     },
     'ru': {
       'appTitle': 'Гим Захват',
@@ -87,7 +91,11 @@ class AppLocalizations {
       'allThreads': 'Все потоки',
       'allTypes': 'Все виды',
       'resetFilters': 'Сбросить фильтры',
-      'displayedCounter': 'Отображено '
+      'displayedCounter': 'Отображено ',
+      'nameGifsTitre': 'GIF-титры',
+      'labelTimerGifs': 'GIF-таймер (сек)',
+      'hintTimerGifs': 'Введите число',
+      'suffixTimerGifs': 'сек'
     },
     'tr': {
       'appTitle': 'Gym Capture',
@@ -128,7 +136,11 @@ class AppLocalizations {
       'allThreads': 'Tüm konular',
       'allTypes': 'Her türlü',
       'resetFilters': 'Filtreleri sıfırla',
-      'displayedCounter': 'Görüntülenen '
+      'displayedCounter': 'Görüntülenen ',
+      'nameGifsTitre': 'GIF Kredileri',
+      'labelTimerGifs': 'GIF zamanlayıcısı (sn)',
+      'hintTimerGifs': 'Numarayı girin',
+      'suffixTimerGifs': 'sn'
     },
   };
 
