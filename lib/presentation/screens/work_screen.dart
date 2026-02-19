@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'dart:async';
 
 import '../../localization/app_localizations.dart';
 import '../../domain/models/schedule_item.dart';
@@ -19,6 +20,7 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
   late final TextEditingController _scheduleInputController;
   int? _selectedThreadFilter;
   int? _selectedTypeFilter;
+  final GlobalKey<GifTitresState> _gifTitresKey = GlobalKey<GifTitresState>();
   
   List<int> _getAvailableThreads(List<ScheduleItem> items) {
     final threads = items.where((item) => item.threadIndex != null)
@@ -288,7 +290,16 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
                               onStart: (filteredIndex) async {
                                 final globalIndex = getGlobalIndex(filteredIndex);
                                 if (globalIndex != -1) {
-                                  await controller.startMark(globalIndex);
+                                  unawaited(controller.startMark(globalIndex));
+                                  final item = state.schedule[globalIndex];
+                                  if (_gifTitresKey.currentState != null) {
+                                    _gifTitresKey.currentState!.scheduleGifDisplay(
+                                      fio: item.fio,
+                                      city: item.city,
+                                      gifKey: _gifTitresKey.currentState!.currentSelectedGif,
+                                      customDelay: _gifTitresKey.currentState!.currentDelay,
+                                    );
+                                  }
                                 }
                               },
                               onStop: (filteredIndex) async {
@@ -317,7 +328,7 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
                       )
                   ),
                   ),
-                  GifTitres(fio: 'Иванов Иван', city: 'Москва',lang: lang),
+                  GifTitres(key: _gifTitresKey, lang: lang),
                 ],
               ),
             ),
