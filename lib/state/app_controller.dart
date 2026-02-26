@@ -157,9 +157,17 @@ class AppController extends StateNotifier<AppState> {
 
   void applySchedule(String content, {String source = 'ui'}) {
     final schedule = _parser.parse(content);
-    state = state.copyWith(schedule: schedule, selectedIndex: schedule.isNotEmpty ? 0 : null);
+    state = state.copyWith(
+      schedule: schedule,
+      selectedIndex: schedule.isNotEmpty ? 0 : null,
+      isScheduleInputVisible: false,
+    );
     _appendLog('Loaded schedule from $source: ${schedule.length} items.');
     createStructOutputDir(content, state.config.outputDir!, schedule);
+  }
+
+  void setScheduleInputVisibility(bool isVisible) {
+    state = state.copyWith(isScheduleInputVisible: isVisible);
   }
 
   void createStructOutputDir(String content, String mainOutputDir, List scheduleList) {

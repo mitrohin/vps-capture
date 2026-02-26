@@ -146,26 +146,37 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
                       padding: const EdgeInsets.all(8.0),
                       child: Column(
                         children: [
-                          TextField(
-                            controller: _scheduleInputController,
-                            minLines: 3,
-                            maxLines: 5,
-                            decoration: InputDecoration(
-                              border: const OutlineInputBorder(),
-                              labelText: AppLocalizations.tr(lang, 'scheduleEditorLabel'),
-                              hintText: AppLocalizations.tr(lang, 'scheduleEditorHint'),
+                          if (state.isScheduleInputVisible) ...[
+                            TextField(
+                              controller: _scheduleInputController,
+                              minLines: 3,
+                              maxLines: 5,
+                              decoration: InputDecoration(
+                                border: const OutlineInputBorder(),
+                                labelText: AppLocalizations.tr(lang, 'scheduleEditorLabel'),
+                                hintText: AppLocalizations.tr(lang, 'scheduleEditorHint'),
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 8),
+                            const SizedBox(height: 8),
+                          ],
                           Row(
                             children: [
-                              Expanded(
-                                child: OutlinedButton.icon(
-                                  onPressed: () => controller.applySchedule(_scheduleInputController.text),
-                                  icon: const Icon(Icons.playlist_add_check),
-                                  label: Text(AppLocalizations.tr(lang, 'applySchedule')),
+                              if (state.isScheduleInputVisible)
+                                Expanded(
+                                  child: OutlinedButton.icon(
+                                    onPressed: () => controller.applySchedule(_scheduleInputController.text),
+                                    icon: const Icon(Icons.playlist_add_check),
+                                    label: Text(AppLocalizations.tr(lang, 'applySchedule')),
+                                  ),
+                                )
+                              else
+                                Expanded(
+                                  child: OutlinedButton.icon(
+                                    onPressed: () => controller.setScheduleInputVisibility(true),
+                                    icon: const Icon(Icons.edit_note),
+                                    label: Text(AppLocalizations.tr(lang, 'loadSchedule')),
+                                  ),
                                 ),
-                              ),
                               const SizedBox(width: 16),
                               Container(
                                 width: 150,
