@@ -301,19 +301,34 @@ class AppController extends StateNotifier<AppState> {
     });
   }
 
-  void postpone([int? index]) {
+  Future<void> postpone([int? index]) async {
     final targetIndex = index ?? state.selectedIndex;
     if (targetIndex == null || targetIndex < 0 || targetIndex >= state.schedule.length) return;
 
-    final updated = [...state.schedule];
-    final item = updated.removeAt(targetIndex).copyWith(
-      status: ScheduleItemStatus.postponed,
-      clearStartedAt: true,
-    );
-    updated.add(item);
-    final fallbackIndex = updated.isEmpty ? null : (targetIndex >= updated.length ? updated.length - 1 : targetIndex);
-    state = state.copyWith(schedule: updated, selectedIndex: fallbackIndex);
-    _appendLog('Marked as POSTPONED: ${item.label}.');
+    final targetItem = state.schedule[targetIndex];
+    if (state.isRecordingMarked && targetItem.status != ScheduleItemStatus.active) {
+      _appendLog('Cannot POSTPONE: another participant is currently recording.');
+      return;
+    }
+
+    var recordingReset = false;
+    await _guard(() async {
+      if (state.isRecordingMarked && targetItem.status == ScheduleItemStatus.active) {
+        await _capture.stopBuffer();
+        state = state.copyWith(isRecordingMarked: false, clearMarkStart: true);
+        recordingReset = true;
+      }
+
+      final updated = [...state.schedule];
+      final item = updated.removeAt(targetIndex).copyWith(
+        status: ScheduleItemStatus.postponed,
+        clearStartedAt: true,
+      );
+      updated.add(item);
+      final fallbackIndex = updated.isEmpty ? null : (targetIndex >= updated.length ? updated.length - 1 : targetIndex);
+      state = state.copyWith(schedule: updated, selectedIndex: fallbackIndex);
+      _appendLog('Marked as POSTPONED: ${item.label}.${recordingReset ? ' Recording mark reset.' : ''}');
+    });
   }
 
   void restoreItem(int index) {

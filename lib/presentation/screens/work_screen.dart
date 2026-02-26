@@ -106,7 +106,7 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
           _MoveDownIntent: CallbackAction<_MoveDownIntent>(onInvoke: (_) => controller.selectNext()),
           _StartIntent: CallbackAction<_StartIntent>(onInvoke: (_) => controller.startMark()),
           _StopIntent: CallbackAction<_StopIntent>(onInvoke: (_) => controller.stopMark()),
-          _PostponeIntent: CallbackAction<_PostponeIntent>(onInvoke: (_) => controller.postpone()),
+          _PostponeIntent: CallbackAction<_PostponeIntent>(onInvoke: (_) => unawaited(controller.postpone())),
         },
         child: Focus(
           autofocus: true,
@@ -308,10 +308,10 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
                                   await controller.stopMark(globalIndex);
                                 }
                               },
-                              onPostpone: (filteredIndex) {
+                              onPostpone: (filteredIndex) async {
                                 final globalIndex = getGlobalIndex(filteredIndex);
                                 if (globalIndex != -1) {
-                                  controller.postpone(globalIndex);
+                                  await controller.postpone(globalIndex);
                                 }
                               },
                               onRestore: (filteredIndex) {
