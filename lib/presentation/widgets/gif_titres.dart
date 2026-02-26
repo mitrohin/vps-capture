@@ -249,7 +249,7 @@ class GifTitresState extends State<GifTitres> {
                           ),
                         ],
                       ),
-                    ).animate().fadeIn(duration: 500.ms),
+                    ).animate().fadeIn(duration: Duration(milliseconds: (selectedTime * 1000 + 500).toInt())),
                   ),
                   if (_isShowingGif)
                   Positioned(
@@ -269,7 +269,7 @@ class GifTitresState extends State<GifTitres> {
                           ),
                         ],
                       ),
-                    ),
+                    ).animate().fadeIn(duration: Duration(milliseconds: (selectedTime * 1000 + 700).toInt())),
                   ),
                 ],
               );
