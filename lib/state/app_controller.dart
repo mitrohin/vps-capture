@@ -310,9 +310,8 @@ class AppController extends StateNotifier<AppState> {
       status: ScheduleItemStatus.postponed,
       clearStartedAt: true,
     );
-    updated.add(item);
-    final fallbackIndex = updated.isEmpty ? null : (targetIndex >= updated.length ? updated.length - 1 : targetIndex);
-    state = state.copyWith(schedule: updated, selectedIndex: fallbackIndex);
+    updated.insert(0, item);
+    state = state.copyWith(schedule: updated, selectedIndex: 0);
     _appendLog('Marked as POSTPONED: ${item.label}.');
   }
 
@@ -334,14 +333,24 @@ class AppController extends StateNotifier<AppState> {
 
   void selectNext() {
     if (state.schedule.isEmpty) return;
-    final current = state.selectedIndex ?? 0;
-    selectIndex((current + 1).clamp(0, state.schedule.length - 1));
+    final current = state.selectedIndex ?? -1;
+    for (var i = current + 1; i < state.schedule.length; i++) {
+      if (state.schedule[i].status != ScheduleItemStatus.done) {
+        selectIndex(i);
+        return;
+      }
+    }
   }
 
   void selectPrevious() {
     if (state.schedule.isEmpty) return;
-    final current = state.selectedIndex ?? 0;
-    selectIndex((current - 1).clamp(0, state.schedule.length - 1));
+    final current = state.selectedIndex ?? state.schedule.length;
+    for (var i = current - 1; i >= 0; i--) {
+      if (state.schedule[i].status != ScheduleItemStatus.done) {
+        selectIndex(i);
+        return;
+      }
+    }
   }
 
   Future<void> togglePreview() async {
