@@ -117,65 +117,87 @@ class DeviceScanner {
       var mode = '';
       for (final rawLine in log.split(RegExp(r'\r?\n'))) {
         final line = rawLine.trim();
-        if (line.contains('DirectShow video devices') || (line.contains('dshow')) && line.contains('video')) {
+        if (line.contains('DirectShow video devices') && line.contains('(video)')) {
           mode = 'v';
           continue;
         }
-        if (line.contains('DirectShow audio devices') || (line.contains('dshow')) && line.contains('audio')) {
+        if (line.contains('DirectShow audio devices') && line.contains('(audio)')) {
           mode = 'a';
           continue;
         }
-
-        final quoted = _extractQuotedValue(line);
-        
-        if (quoted != null && !line.contains('Alternative name')) {
-          final device = _DshowDevice(displayName: quoted, inputName: quoted);
-          if (mode == 'v') {
+        final quotedMatch = RegExp(r'"([^"]+)"\s+\(([^)]+)\)').firstMatch(line);
+        if (quotedMatch != null && !line.contains('Alternative name')) {
+          final name = quotedMatch.group(1)!;
+          final types = quotedMatch.group(2)!;
+          
+          if (types.contains('video') && types.contains('audio')) {
+            final videoDevice = _DshowDevice(displayName: name, inputName: name);
+            final audioDevice = _DshowDevice(displayName: name, inputName: name);
+            _addUnique(videos, videoDevice);
+            _addUnique(audios, audioDevice);
+            pendingVideo = videoDevice;
+            pendingAudio = audioDevice;
+            mode = 'av';
+          } else if (types.contains('video')) {
+            final device = _DshowDevice(displayName: name, inputName: name);
             _addUnique(videos, device);
             pendingVideo = device;
-          }
-          if (mode == 'a') {
+            mode = 'v';
+          } else if (types.contains('audio')) {
+            final device = _DshowDevice(displayName: name, inputName: name);
             _addUnique(audios, device);
             pendingAudio = device;
+            mode = 'a';
           }
+          continue;
         }
-
+        
         if (line.contains('Alternative name')) {
-          if (quoted != null && mode == 'v' && pendingVideo != null) {
-
-            _replaceInputName(videos, pendingVideo, quoted);
+          final altMatch = RegExp(r'"([^"]+)"').firstMatch(line);
+          if (altMatch != null) {
+            final altName = altMatch.group(1)!;
+            
+            if (mode == 'av' && pendingVideo != null && pendingAudio != null) {
+              _replaceInputName(videos, pendingVideo, altName);
+              _replaceInputName(audios, pendingAudio, altName);
+            } else if (mode == 'v' && pendingVideo != null) {
+              _replaceInputName(videos, pendingVideo, altName);
+            } else if (mode == 'a' && pendingAudio != null) {
+              _replaceInputName(audios, pendingAudio, altName);
+            }
           }
-          if (quoted != null && mode == 'a' && pendingAudio != null) {
-            _replaceInputName(audios, pendingAudio, quoted);
-          }
+          continue;
         }
-
-        // Fallback parser for `ffmpeg -sources dshow` output:
-        //   * video="Device"
-        //   * audio="Device"
-        final source = RegExp(r'^\*\s*(video|audio)="(.+?)"$', caseSensitive: false).firstMatch(line);
-        final sourcesAlternative = RegExp(r'^([^ ]+)\s+\[(.+?)\]\s+\((video|audio)\)$', caseSensitive: false).firstMatch(line);
-        if (source != null) {
-          final type = source.group(1)!.toLowerCase();
-          final name = source.group(2)!;
-          print('$name $type');
-          if (type == 'video') _addUnique(videos, _DshowDevice(displayName: name, inputName: name));
-          if (type == 'audio') _addUnique(audios, _DshowDevice(displayName: name, inputName: name));
-        } else if (sourcesAlternative != null) {
-          final type = sourcesAlternative.group(3)!.toLowerCase();
-          final name = sourcesAlternative.group(2)!;
-          print('$name $type');
-          if (type == 'video') _addUnique(videos, _DshowDevice(displayName: name, inputName: name));
-          if (type == 'audio') _addUnique(audios, _DshowDevice(displayName: name, inputName: name));
+        final sourceMatch = RegExp(r'^@[^\s]+\s+\[([^\]]+)\]\s+\(([^)]+)\)').firstMatch(line);
+        if (sourceMatch != null) {
+          final name = sourceMatch.group(1)!;
+          final types = sourceMatch.group(2)!;
+          
+          if (types.contains('video') && types.contains('audio')) {
+            _addUnique(videos, _DshowDevice(displayName: name, inputName: name));
+            _addUnique(audios, _DshowDevice(displayName: name, inputName: name));
+          } else if (types.contains('video')) {
+            _addUnique(videos, _DshowDevice(displayName: name, inputName: name));
+          } else if (types.contains('audio')) {
+            _addUnique(audios, _DshowDevice(displayName: name, inputName: name));
+          }
+          continue;
+        }
+        final simpleMatch = RegExp(r'^(video|audio)\s+(.+)$').firstMatch(line);
+        if (simpleMatch != null) {
+          final type = simpleMatch.group(1)!;
+          final name = simpleMatch.group(2)!;
+          
+          if (type == 'video') {
+            _addUnique(videos, _DshowDevice(displayName: name, inputName: name));
+          } else if (type == 'audio') {
+            _addUnique(audios, _DshowDevice(displayName: name, inputName: name));
+          }
         }
       }
     }
+    
     return (videos: videos, audios: audios);
-  }
-
-  String? _extractQuotedValue(String line) {
-    final m = RegExp(r'"(.+?)"').firstMatch(line);
-    return m?.group(1);
   }
 
   void _addUnique(List<_DshowDevice> items, _DshowDevice value) {
