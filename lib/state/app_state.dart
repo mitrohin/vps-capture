@@ -16,6 +16,7 @@ class AppState {
     this.currentMarkStartedAt,
     this.logs = const [],
     this.isPreviewRunning = false,
+    this.isScheduleInputVisible = true,
   });
 
   final AppMode mode;
@@ -28,6 +29,7 @@ class AppState {
   final DateTime? currentMarkStartedAt;
   final List<String> logs;
   final bool isPreviewRunning;
+  final bool isScheduleInputVisible;
 
   ScheduleItem? get selectedItem {
     final index = selectedIndex;
@@ -48,6 +50,7 @@ class AppState {
     bool clearMarkStart = false,
     List<String>? logs,
     bool? isPreviewRunning,
+    bool? isScheduleInputVisible,
   }) {
     return AppState(
       mode: mode ?? this.mode,
@@ -60,6 +63,7 @@ class AppState {
       currentMarkStartedAt: clearMarkStart ? null : (currentMarkStartedAt ?? this.currentMarkStartedAt),
       logs: logs ?? this.logs,
       isPreviewRunning: isPreviewRunning ?? this.isPreviewRunning,
+      isScheduleInputVisible: isScheduleInputVisible ?? this.isScheduleInputVisible,
     );
   }
 }
