@@ -60,14 +60,7 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
       return threadMatch && typeMatch;
     }).toList();
 
-    final postponed = visibleItems
-        .where((item) => item.status == ScheduleItemStatus.postponed)
-        .toList();
-    final regular = visibleItems
-        .where((item) => item.status != ScheduleItemStatus.postponed)
-        .toList();
-
-    return [...postponed, ...regular];
+    return visibleItems;
   }
 
   int getGlobalIndex(int filteredIndex) {
