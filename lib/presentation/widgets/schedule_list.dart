@@ -22,7 +22,7 @@ class ScheduleList extends StatelessWidget {
   final ValueChanged<int> onSelect;
   final Future<void> Function(int index) onStart;
   final Future<void> Function(int index) onStop;
-  final ValueChanged<int> onPostpone;
+  final Future<void> Function(int index) onPostpone;
   final ValueChanged<int> onRestore;
   final bool isRecordingMarked;
   final String languageCode;
@@ -37,6 +37,7 @@ class ScheduleList extends StatelessWidget {
         final isActive = item.status == ScheduleItemStatus.active;
         final isDone = item.status == ScheduleItemStatus.done;
         final canStartThisItem = !isRecordingMarked || isActive;
+        final canPostponeThisItem = !isRecordingMarked || isActive;
         return ListTile(
           selected: isSelected,
           onTap: () => onSelect(index),
@@ -69,7 +70,7 @@ class ScheduleList extends StatelessWidget {
                 ),
                 IconButton(
                   tooltip: AppLocalizations.tr(languageCode, 'postponeHotkey'),
-                  onPressed: () => onPostpone(index),
+                  onPressed: canPostponeThisItem ? () => onPostpone(index) : null,
                   icon: const Icon(Icons.keyboard_double_arrow_down),
                 ),
               ],
