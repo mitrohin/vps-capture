@@ -26,4 +26,10 @@ class AppPaths {
   Future<File> concatListFile() async {
     return File(p.join((await appSupportDir()).path, 'concat_list.txt'));
   }
+
+  static String getExecutableDirectory() {
+    final executablePath = Platform.resolvedExecutable;
+    final executableDir = Directory(executablePath).parent.path;
+    return executableDir;
+  }
 }
