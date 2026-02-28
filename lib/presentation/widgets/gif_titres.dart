@@ -2,22 +2,24 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:flutter_animate/flutter_animate.dart';
 
-import '../../localization/app_localizations.dart';
-
 class GifTitres extends StatefulWidget {
   const GifTitres({
     super.key,
     required this.lang,
+    required this.delayTime,
+    required this.selectedGif,
   });
 
   final String lang;
+  final int delayTime;
+  final String selectedGif;
 
   @override
   State<GifTitres> createState() => GifTitresState();
 }
 
 class GifTitresState extends State<GifTitres> {
-  static const Map<String, String> gifs = {
+  final Map<String, String> gifs = {
     'blue': 'lib/data/assets/blue.gif',
     'red': 'lib/data/assets/red.gif',
     'fitness': 'lib/data/assets/fitness.gif',
@@ -50,16 +52,14 @@ class GifTitresState extends State<GifTitres> {
     },
   };
   
-  String selectedGif = gifs.keys.first;
   String _currentFio = '';
   String _currentCity = '';
-  int selectedTime = 3;
   bool _isShowingGif = false;
   Timer? _hideGifTimer;
   Timer? _scheduleTimer;
+  late String _selectedGif;
 
-  final TextEditingController _timeController = TextEditingController();
-  Map<String, double> get _currentPositions => textPositions[selectedGif]!;
+  Map<String, double> get _currentPositions => textPositions[_selectedGif]!;
 
   void showGifWithData({required String fio, required String city, String? gifKey}) {
     _resetGif();
@@ -67,7 +67,7 @@ class GifTitresState extends State<GifTitres> {
       _currentFio = fio;
       _currentCity = city;
       if (gifKey != null && gifs.containsKey(gifKey)) {
-        selectedGif = gifKey;
+        _selectedGif = gifKey;
       }
       _isShowingGif = true;
     });
@@ -82,7 +82,7 @@ class GifTitresState extends State<GifTitres> {
   }
 
   void _resetGif() {
-    final provider = AssetImage(gifs[selectedGif]!);
+    final provider = AssetImage(gifs[_selectedGif]!);
     provider.evict();
     setState(() {});
   }
@@ -106,7 +106,7 @@ class GifTitresState extends State<GifTitres> {
     _scheduleTimer?.cancel();
     _hideGifTimer?.cancel();
     
-    final delay = customDelay ?? selectedTime;
+    final delay = customDelay ?? widget.delayTime;
     
     try {
       if (delay > 0) {
@@ -133,20 +133,19 @@ class GifTitresState extends State<GifTitres> {
     }
   }
 
-  String get currentSelectedGif => selectedGif;
-  int get currentDelay => selectedTime;
+  String get currentSelectedGif => _selectedGif;
+  int get currentDelay => widget.delayTime;
 
   @override
   void initState() {
+    _selectedGif = widget.selectedGif;
     super.initState();
-    _timeController.text = '2';
   }
 
   @override
   void dispose() {
     _hideGifTimer?.cancel();
     _scheduleTimer?.cancel();
-    _timeController.dispose();
     super.dispose();
   }
 
@@ -155,54 +154,6 @@ class GifTitresState extends State<GifTitres> {
     final screenSize = MediaQuery.of(context).size;
     return Column(
       children: [
-        Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: Row(
-            children: [
-              Expanded(
-                child: DropdownButtonFormField<String>(
-                  initialValue: selectedGif,
-                  decoration: InputDecoration(
-                    labelText: AppLocalizations.tr(widget.lang, 'nameGifsTitre'),
-                    border: const OutlineInputBorder(),
-                  ),
-                  items: gifs.keys.map((String key) {
-                    return DropdownMenuItem<String>(
-                      value: key,
-                      child: Text(key),
-                    );
-                  }).toList(),
-                  onChanged: (String? newValue) {
-                    if (newValue != null) {
-                      setState(() {
-                        selectedGif = newValue;
-                      });
-                    }
-                  },
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: TextFormField(
-                  controller: _timeController,
-                  decoration: InputDecoration(
-                    labelText: AppLocalizations.tr(widget.lang, 'labelTimerGifs'),
-                    border: const OutlineInputBorder(),
-                    hintText: AppLocalizations.tr(widget.lang, 'hintTimerGifs'),
-                    suffixText: AppLocalizations.tr(widget.lang, 'suffixTimerGifs'),
-                  ),
-                  keyboardType: TextInputType.number,
-                  onChanged: (value) {
-                    setState(() {
-                      selectedTime = int.tryParse(value) ?? 3;
-                    });
-                  },
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 8),
         Container(
           height: screenSize.height * 0.3,
           width: double.infinity,
@@ -214,7 +165,7 @@ class GifTitresState extends State<GifTitres> {
                   if (_isShowingGif)
                   Positioned.fill(
                     child: Image.asset(
-                      gifs[selectedGif]!,
+                      gifs[_selectedGif]!,
                       fit: BoxFit.cover,
                       gaplessPlayback: false,
                       errorBuilder: (context, error, stackTrace) {
@@ -249,7 +200,7 @@ class GifTitresState extends State<GifTitres> {
                           ),
                         ],
                       ),
-                    ).animate().fadeIn(duration: Duration(milliseconds: (selectedTime * 1000 + 500).toInt())),
+                    ).animate().fadeIn(duration: Duration(milliseconds: (widget.delayTime * 1000 + 700).toInt())),
                   ),
                   if (_isShowingGif)
                   Positioned(
@@ -258,7 +209,7 @@ class GifTitresState extends State<GifTitres> {
                     child: Text(
                       _currentCity.toUpperCase(),
                       style: TextStyle(
-                        color: selectedGif == "red" ? Colors.black : Colors.white,
+                        color: _selectedGif == "red" ? Colors.black : Colors.white,
                         fontSize: constraints.maxHeight * 0.1,
                         fontWeight: FontWeight.normal,
                         shadows: const [
@@ -269,7 +220,7 @@ class GifTitresState extends State<GifTitres> {
                           ),
                         ],
                       ),
-                    ).animate().fadeIn(duration: Duration(milliseconds: (selectedTime * 1000 + 700).toInt())),
+                    ).animate().fadeIn(duration: Duration(milliseconds: (widget.delayTime * 1000 + 850).toInt())),
                   ),
                 ],
               );
