@@ -10,11 +10,13 @@ class AppConfig {
     this.selectedAudioDevice,
     this.codec,
     this.videoBitrate = '8M',
-    this.fps = 30,
+    this.fps = 50,
     this.segmentSeconds = 1,
     this.bufferMinutes = 8,
     this.preRollSeconds = 2,
     this.languageCode = 'en',
+    this.selectedGif,
+    this.version = '1.0.0',
   });
 
   final String? ffmpegPath;
@@ -30,6 +32,8 @@ class AppConfig {
   final int bufferMinutes;
   final int preRollSeconds;
   final String languageCode;
+  final String? selectedGif;
+  final String version;
 
   bool get isComplete =>
       (ffmpegPath?.isNotEmpty ?? false) &&
@@ -54,6 +58,8 @@ class AppConfig {
     String? languageCode,
     bool clearVideoDevice = false,
     bool clearAudioDevice = false,
+    String? selectedGif,
+    String? version,
   }) {
     return AppConfig(
       ffmpegPath: ffmpegPath ?? this.ffmpegPath,
@@ -69,6 +75,8 @@ class AppConfig {
       bufferMinutes: bufferMinutes ?? this.bufferMinutes,
       preRollSeconds: preRollSeconds ?? this.preRollSeconds,
       languageCode: languageCode ?? this.languageCode,
+      selectedGif: selectedGif ?? this.selectedGif,
+      version: version ?? this.version,
     );
   }
 }
