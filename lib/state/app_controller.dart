@@ -13,6 +13,7 @@ import '../data/capture/capture_backend.dart';
 import '../data/capture/capture_service.dart';
 import '../data/capture/clip_exporter.dart';
 import '../data/capture/preview_service.dart';
+import '../data/capture/test_record_service.dart';
 import '../data/ffmpeg/device_scanner.dart';
 import '../data/ffmpeg/ffmpeg_installer.dart';
 import '../data/ffmpeg/ffmpeg_locator.dart';
@@ -26,17 +27,19 @@ import 'app_state.dart';
 final appControllerProvider = StateNotifierProvider<AppController, AppState>((ref) {
   final paths = AppPaths();
   final backend = CaptureBackend();
+  final captureService = CaptureService(BufferRecorder(paths, backend), ClipExporter(paths));
   return AppController(
     FfmpegLocator(paths),
     FfmpegInstaller(paths, Dio()),
     DeviceScanner(),
     ScheduleParser(),
-    CaptureService(BufferRecorder(paths, backend), ClipExporter(paths)),
+    captureService,
     PreviewService(backend),
+    TestRecordService(captureService, ClipExporter(paths)),
   )..initialize();
 });
 
-class AppController extends StateNotifier<AppState> {
+class AppController extends StateNotifier<AppState>  {
   AppController(
     this._locator,
     this._installer,
@@ -44,6 +47,7 @@ class AppController extends StateNotifier<AppState> {
     this._parser,
     this._capture,
     this._preview,
+    this._testRecorder,
   ) : super(const AppState());
 
   final FfmpegLocator _locator;
@@ -52,6 +56,8 @@ class AppController extends StateNotifier<AppState> {
   final ScheduleParser _parser;
   final CaptureService _capture;
   final PreviewService _preview;
+  final TestRecordService _testRecorder;
+  
 
   SharedPreferences? _prefs;
 
@@ -73,10 +79,12 @@ class AppController extends StateNotifier<AppState> {
       bufferMinutes: _prefs!.getInt('bufferMinutes') ?? 8,
       preRollSeconds: _prefs!.getInt('preRollSeconds') ?? 2,
       languageCode: _stringOrNull(_prefs!.getString('languageCode')) ?? 'en',
+      selectedGif: _prefs!.getString('selectedGif') ?? 'blue',
+      version: _prefs!.getString('version') ?? '1.0.0'
     );
-
     state = state.copyWith(config: cfg);
-    if (cfg.isComplete) {
+    await loadScheduleFromFile();
+    if (cfg.isComplete && state.devices.isNotEmpty) {
       await enterWorkMode();
     }
   }
@@ -130,8 +138,8 @@ class AppController extends StateNotifier<AppState> {
     await prefs.setString('ffplayPath', config.ffplayPath ?? '');
     await prefs.setString('outputDir', config.outputDir ?? '');
     await prefs.setString('sourceKind', config.sourceKind?.name ?? '');
-    await prefs.setString('selectedDevice', config.selectedVideoDevice == null ? '' : jsonEncode(config.selectedVideoDevice!.toJson()));
-    await prefs.setString('selectedDevice', config.selectedAudioDevice == null ? '' : jsonEncode(config.selectedAudioDevice!.toJson()));
+    await prefs.setString('selectedVideoDevice', config.selectedVideoDevice == null ? '' : jsonEncode(config.selectedVideoDevice!.toJson()));
+    await prefs.setString('selectedAudioDevice', config.selectedAudioDevice == null ? '' : jsonEncode(config.selectedAudioDevice!.toJson()));
     await prefs.setString('codec', config.codec ?? '');
     await prefs.setString('videoBitrate', config.videoBitrate);
     await prefs.setInt('fps', config.fps);
@@ -139,6 +147,8 @@ class AppController extends StateNotifier<AppState> {
     await prefs.setInt('bufferMinutes', config.bufferMinutes);
     await prefs.setInt('preRollSeconds', config.preRollSeconds);
     await prefs.setString('languageCode', config.languageCode);
+    await prefs.setString('selectedGif', config.selectedGif ?? 'blue');
+    await prefs.setString('version', config.version);
   }
 
 
@@ -152,6 +162,7 @@ class AppController extends StateNotifier<AppState> {
       final file = File(res.files.single.path!);
       final content = await file.readAsString();
       applySchedule(content, source: 'file');
+      createScheduleFile();
     });
   }
 
@@ -164,6 +175,7 @@ class AppController extends StateNotifier<AppState> {
     );
     _appendLog('Loaded schedule from $source: ${schedule.length} items.');
     createStructOutputDir(content, state.config.outputDir!, schedule);
+    createScheduleFile();
   }
 
   void setScheduleInputVisibility(bool isVisible) {
@@ -207,6 +219,112 @@ class AppController extends StateNotifier<AppState> {
     } catch (e) {}
   }
 
+  void createScheduleFile() {
+    final scheduleFileData = state.schedule;
+    final scheduleFileDir = AppPaths.getExecutableDirectory();
+    final filePath = p.join(scheduleFileDir, 'schedule.json');
+    final jsonData = scheduleFileData.map((item) => {
+      'id': item.id,
+      'fio': item.fio,
+      'city': item.city,
+      'apparatus': item.apparatus,
+      'status': item.status.toString().replaceAll("ScheduleItemStatus.", ""),
+      'threadIndex': item.threadIndex,
+      'typeIndex': item.typeIndex,
+      'startedAt': item.startedAt?.toIso8601String(),
+    }).toList();
+    const encoder = JsonEncoder.withIndent('  ');
+    final jsonString = encoder.convert(jsonData);
+    
+    final file = File(filePath);
+    file.writeAsStringSync(jsonString, mode: FileMode.write);
+  }
+
+  Future<void> loadScheduleFromFile() async {
+    try {
+      final scheduleFileDir = AppPaths.getExecutableDirectory();
+      final filePath = p.join(scheduleFileDir, 'schedule.json');
+      final file = File(filePath);
+      
+      if (await file.exists()) {
+        final jsonString = await file.readAsString();
+        final List<dynamic> jsonData = jsonDecode(jsonString);
+        final List<ScheduleItem> loadedSchedule = jsonData.map((item) {
+          return ScheduleItem(
+            id: item['id'],
+            fio: item['fio'],
+            apparatus: item['apparatus'],
+            city: item['city'],
+            status: _parseStatus(item['status']),
+            startedAt: item['startedAt'] != null 
+                ? DateTime.parse(item['startedAt']) 
+                : null,
+            threadIndex: item['threadIndex'],
+            typeIndex: item['typeIndex'],
+          );
+        }).toList();
+        state = state.copyWith(
+          schedule: loadedSchedule,
+          selectedIndex: loadedSchedule.isNotEmpty ? 0 : null,
+          isScheduleInputVisible: false,
+        );
+        _appendLog('Loaded schedule from file: ${loadedSchedule.length} items.');
+      } else {
+        _appendLog('No schedule file found at: $filePath');
+      }
+    } catch (e) {
+      _appendLog('Error loading schedule file: $e');
+    }
+  }
+
+  ScheduleItemStatus _parseStatus(String status) {
+    switch (status) {
+      case 'pending':
+        return ScheduleItemStatus.pending;
+      case 'active':
+        return ScheduleItemStatus.active;
+      case 'done':
+        return ScheduleItemStatus.done;
+      case 'postponed':
+        return ScheduleItemStatus.postponed;
+      default:
+        return ScheduleItemStatus.pending;
+    }
+  }
+
+  Future<void> _updateScheduleItemInFile(ScheduleItem updatedItem) async {
+    try {
+      final scheduleFileDir = AppPaths.getExecutableDirectory();
+      final filePath = p.join(scheduleFileDir, 'schedule.json');
+      final file = File(filePath);
+      
+      if (await file.exists()) {
+        final jsonString = await file.readAsString();
+        final List<dynamic> jsonData = jsonDecode(jsonString);
+        final index = jsonData.indexWhere((item) => item['id'] == updatedItem.id);
+        if (index != -1) {
+          jsonData[index] = {
+            'id': updatedItem.id,
+            'fio': updatedItem.fio,
+            'city': updatedItem.city,
+            'apparatus': updatedItem.apparatus,
+            'status': updatedItem.status.toString().replaceAll("ScheduleItemStatus.", ""),
+            'threadIndex': updatedItem.threadIndex,
+            'typeIndex': updatedItem.typeIndex,
+            'startedAt': updatedItem.startedAt?.toIso8601String(),
+          };
+          const encoder = JsonEncoder.withIndent('  ');
+          final updatedJsonString = encoder.convert(jsonData);
+          await file.writeAsString(updatedJsonString, mode: FileMode.write);
+          
+          _appendLog('Schedule item ${updatedItem.id} updated in file');
+        }
+      }
+    } catch (e) {
+      _appendLog('Error updating schedule item in file: $e');
+    }
+  }
+
   Future<void> enterWorkMode() async {
     if (!state.config.isComplete) {
       _appendLog('Setup incomplete: choose ffmpeg, output folder, source, and device.');
@@ -219,6 +337,7 @@ class AppController extends StateNotifier<AppState> {
   Future<void> backToSetup() async {
     await _capture.stopBuffer();
     await _preview.stop();
+    await _testRecorder.stop(state.config, _appendLog);
     state = state.copyWith(mode: AppMode.setup, isPreviewRunning: false, isRecordingMarked: false, clearMarkStart: true);
   }
 
@@ -247,6 +366,7 @@ class AppController extends StateNotifier<AppState> {
           isRecordingMarked: false,
           clearMarkStart: true,
         );
+        _updateScheduleItemInFile(reset[activeIndex]);
       });
 
       final start = DateTime.now();
@@ -258,6 +378,7 @@ class AppController extends StateNotifier<AppState> {
         isRecordingMarked: true,
         currentMarkStartedAt: start,
       );
+      await _updateScheduleItemInFile(updated[targetIndex]);
       _appendLog('START marked for ${item.label}. Buffer recording started.');
     });
   }
@@ -287,7 +408,10 @@ class AppController extends StateNotifier<AppState> {
           onLog: _appendLog,
         );
         final updated = [...state.schedule];
-        updated[activeIndex] = item.copyWith(status: ScheduleItemStatus.done, clearStartedAt: true);
+        updated[activeIndex] = item.copyWith(
+          status: ScheduleItemStatus.done, 
+          startedAt: state.currentMarkStartedAt,
+        );
         final nextIndex = _findNextReady(updated, activeIndex);
         state = state.copyWith(
           schedule: updated,
@@ -295,6 +419,7 @@ class AppController extends StateNotifier<AppState> {
           clearMarkStart: true,
           selectedIndex: nextIndex,
         );
+        await _updateScheduleItemInFile(updated[activeIndex]);
         _appendLog('STOP complete, clip saved: $out');
       } catch (_) {
         final updated = [...state.schedule];
@@ -304,6 +429,7 @@ class AppController extends StateNotifier<AppState> {
           isRecordingMarked: false,
           clearMarkStart: true,
         );
+        await _updateScheduleItemInFile(updated[activeIndex]);
         rethrow;
       }
     });
@@ -330,10 +456,10 @@ class AppController extends StateNotifier<AppState> {
       final updated = [...state.schedule];
       final item = updated.removeAt(targetIndex).copyWith(
         status: ScheduleItemStatus.postponed,
-        clearStartedAt: true,
       );
       updated.insert(0, item);
       state = state.copyWith(schedule: updated, selectedIndex: 0);
+      await _updateScheduleItemInFile(item);
       _appendLog('Marked as POSTPONED: ${item.label}.');
     });
   }
@@ -386,6 +512,21 @@ class AppController extends StateNotifier<AppState> {
         await _preview.start(state.config, _appendLog);
         state = state.copyWith(isPreviewRunning: true);
         _appendLog('Preview started.');
+      }
+    });
+  }
+
+  Future<void> toggleTestRecording() async {
+    await _guard(() async {
+      if (state.isTestRecording) {
+        final savedPath = await _testRecorder.stop(state.config, _appendLog);
+        state = state.copyWith(isTestRecording: false);
+        if (savedPath != null) {
+          _appendLog('Test recording saved to: $savedPath');
+        }
+      } else {
+        await _testRecorder.start(state.config, _appendLog);
+        state = state.copyWith(isTestRecording: true);
       }
     });
   }
