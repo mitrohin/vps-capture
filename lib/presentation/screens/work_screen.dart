@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:flutter/services.dart' show LogicalKeyboardKey, PhysicalKeyboardKey;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'dart:async';
 
@@ -20,8 +20,40 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
   late final TextEditingController _scheduleInputController;
   int? _selectedThreadFilter;
   int? _selectedTypeFilter;
+  int delayTime = 3;
   final GlobalKey<GifTitresState> _gifTitresKey = GlobalKey<GifTitresState>();
+  final TextEditingController _timeController = TextEditingController();
+
+  void _updateSelectedIndexAfterFilterChange() {
+    final state = ref.read(appControllerProvider);
+    final filteredItems = _getFilteredItems(state.schedule);
+    if (filteredItems.isNotEmpty) {
+      final globalIndex = state.schedule.indexWhere((item) => item.id == filteredItems.first.id);
+      if (globalIndex != -1) {
+        ref.read(appControllerProvider.notifier).selectIndex(globalIndex);
+      }
+    } else {
+      ref.read(appControllerProvider.notifier).selectIndex(-1);
+    }
+  }
   
+  void _handleStartWithGif(int globalIndex) {
+    final controller = ref.read(appControllerProvider.notifier);
+    final state = ref.read(appControllerProvider);
+    
+    unawaited(controller.startMark(globalIndex));
+    
+    final item = state.schedule[globalIndex];
+    if (_gifTitresKey.currentState != null) {
+      _gifTitresKey.currentState!.scheduleGifDisplay(
+        fio: item.fio,
+        city: item.city,
+        gifKey: _gifTitresKey.currentState!.currentSelectedGif,
+        customDelay: _gifTitresKey.currentState!.currentDelay,
+      );
+    }
+  }
+
   List<int> _getAvailableThreads(List<ScheduleItem> items) {
     final threads = items.where((item) => item.threadIndex != null)
         .map((item) => item.threadIndex!)
@@ -51,15 +83,55 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
   }
 
   List<ScheduleItem> _getFilteredItems(List<ScheduleItem> items) {
-    final visibleItems = items.where((item) {
-      if (item.status == ScheduleItemStatus.done) return false;
+    final activeItems = <ScheduleItem>[];
+    final doneItems = <ScheduleItem>[];
+    final postponedItems = <ScheduleItem>[];
+    final pendingItems = <ScheduleItem>[];
+    
+    for (var item in items) {
       final threadMatch = _selectedThreadFilter == null ||
           item.threadIndex == _selectedThreadFilter;
       final typeMatch = _selectedTypeFilter == null ||
           item.typeIndex == _selectedTypeFilter;
-      return threadMatch && typeMatch;
-    }).toList();
-
+      
+      if (!threadMatch || !typeMatch) continue;
+      switch (item.status) {
+        case ScheduleItemStatus.active:
+          activeItems.add(item);
+          break;
+        case ScheduleItemStatus.done:
+          doneItems.add(item);
+          break;
+        case ScheduleItemStatus.postponed:
+          postponedItems.add(item);
+          break;
+        case ScheduleItemStatus.pending:
+          pendingItems.add(item);
+          break;
+      }
+    }
+    doneItems.sort((a, b) {
+      final aTime = a.startedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+      final bTime = b.startedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+      return aTime.compareTo(bTime);
+    });
+    final ScheduleItem? lastDoneItem = doneItems.isNotEmpty ? doneItems.last : null;
+    // 1. Последний выполненный
+    // 2. Отложенные
+    // 3. Активный
+    // 4. Ожидающие
+    final visibleItems = <ScheduleItem>[];
+    // 1. Последний выполненный
+    if (lastDoneItem != null) {
+      visibleItems.add(lastDoneItem);
+    }
+    // 2. Отложенные
+    visibleItems.addAll(postponedItems);
+    // 3. Активный
+    visibleItems.addAll(activeItems);
+    // 4. Ожидающие
+    visibleItems.addAll(pendingItems);
+    
     return visibleItems;
   }
 
@@ -77,11 +149,13 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
   void initState() {
     super.initState();
     _scheduleInputController = TextEditingController();
+    _timeController.text = '2';
   }
 
   @override
   void dispose() {
     _scheduleInputController.dispose();
+    _timeController.dispose();
     super.dispose();
   }
 
@@ -97,25 +171,58 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
 
     return Shortcuts(
       shortcuts: {
-        LogicalKeySet(LogicalKeyboardKey.arrowUp): const _MoveUpIntent(),
-        LogicalKeySet(LogicalKeyboardKey.arrowDown): const _MoveDownIntent(),
-        LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyS): const _StartIntent(),
-        LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyX): const _StopIntent(),
-        LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyD): const _PostponeIntent(),
+        const SingleActivator(LogicalKeyboardKey.arrowUp): const _MoveUpIntent(),
+        const SingleActivator(LogicalKeyboardKey.arrowDown): const _MoveDownIntent(),
+        const SingleActivator(LogicalKeyboardKey.space): const _ToggleRecordingIntent(),
+        LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.altLeft): const _PostponeIntent(),
       },
       child: Actions(
         actions: {
           _MoveUpIntent: CallbackAction<_MoveUpIntent>(onInvoke: (_) => controller.selectPrevious()),
           _MoveDownIntent: CallbackAction<_MoveDownIntent>(onInvoke: (_) => controller.selectNext()),
-          _StartIntent: CallbackAction<_StartIntent>(onInvoke: (_) => controller.startMark()),
-          _StopIntent: CallbackAction<_StopIntent>(onInvoke: (_) => controller.stopMark()),
+          _ToggleRecordingIntent: CallbackAction<_ToggleRecordingIntent>(
+            onInvoke: (_) {
+              if (state.isRecordingMarked) {
+                controller.stopMark();
+              } else {
+                final currentSelectedIndex = state.selectedIndex;
+                if (currentSelectedIndex != null) {
+                  _handleStartWithGif(currentSelectedIndex);
+                } else {
+                  final filteredItems = _getFilteredItems(state.schedule);
+                  if (filteredItems.isNotEmpty) {
+                    final globalIndex = getGlobalIndex(0);
+                    if (globalIndex != -1) {
+                      _handleStartWithGif(globalIndex);
+                    }
+                  }
+                }
+              }
+            },
+          ),
           _PostponeIntent: CallbackAction<_PostponeIntent>(onInvoke: (_) => unawaited(controller.postpone())),
         },
         child: Focus(
           autofocus: true,
           child: Scaffold(
             appBar: AppBar(
-              title: Text(AppLocalizations.tr(lang, 'workTitle')),
+              title: Row(
+                children: [
+                  Text(AppLocalizations.tr(lang, 'workTitle')),
+                  const SizedBox(width: 5),
+                  Text(AppLocalizations.tr(lang, 'setupVersion'), 
+                    style:
+                    TextStyle(
+                      color: Colors.grey.shade600,
+                      fontSize: 13)
+                    ),
+                  Text(state.config.version,
+                    style:
+                    TextStyle(
+                      color: Colors.grey.shade600,
+                      fontSize: 13))
+                ]
+              ),
               actions: [
                 PopupMenuButton<String>(
                   tooltip: AppLocalizations.tr(lang, 'language'),
@@ -180,7 +287,26 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
                                     label: Text(AppLocalizations.tr(lang, 'loadSchedule')),
                                   ),
                                 ),
-                              const SizedBox(width: 16),
+                              const SizedBox(width: 8),
+                              IntrinsicWidth(
+                                child: TextFormField(
+                                  controller: _timeController,
+                                  decoration: InputDecoration(
+                                    labelText: AppLocalizations.tr(lang, 'labelTimerGifs'),
+                                    border: const OutlineInputBorder(),
+                                    hintText: AppLocalizations.tr(lang, 'hintTimerGifs'),
+                                    suffixText: AppLocalizations.tr(lang, 'suffixTimerGifs'),
+                                    isDense: true,
+                                  ),
+                                  keyboardType: TextInputType.number,
+                                  onChanged: (value) {
+                                    setState(() {
+                                      delayTime = int.tryParse(value) ?? 3;
+                                    });
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 8),
                               Container(
                                 width: 150,
                                 decoration: BoxDecoration(
@@ -215,6 +341,7 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
                                         _selectedThreadFilter = value;
                                         _selectedTypeFilter = null;
                                       });
+                                      _updateSelectedIndexAfterFilterChange();
                                     },
                                   ),
                                 ),
@@ -253,6 +380,7 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
                                       setState(() {
                                         _selectedTypeFilter = value;
                                       });
+                                      _updateSelectedIndexAfterFilterChange();
                                     },
                                   ),
                                 ),
@@ -265,6 +393,7 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
                                       _selectedThreadFilter = null;
                                       _selectedTypeFilter = null;
                                     });
+                                    _updateSelectedIndexAfterFilterChange();
                                   },
                                   tooltip: AppLocalizations.tr(lang, 'resetFilters'),
                                 ),
@@ -304,16 +433,7 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
                               onStart: (filteredIndex) async {
                                 final globalIndex = getGlobalIndex(filteredIndex);
                                 if (globalIndex != -1) {
-                                  unawaited(controller.startMark(globalIndex));
-                                  final item = state.schedule[globalIndex];
-                                  if (_gifTitresKey.currentState != null) {
-                                    _gifTitresKey.currentState!.scheduleGifDisplay(
-                                      fio: item.fio,
-                                      city: item.city,
-                                      gifKey: _gifTitresKey.currentState!.currentSelectedGif,
-                                      customDelay: _gifTitresKey.currentState!.currentDelay,
-                                    );
-                                  }
+                                  _handleStartWithGif(globalIndex);
                                 }
                               },
                               onStop: (filteredIndex) async {
@@ -342,7 +462,7 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
                       )
                   ),
                   ),
-                  GifTitres(key: _gifTitresKey, lang: lang),
+                  GifTitres(key: _gifTitresKey, lang: lang, delayTime: delayTime, selectedGif: state.config.selectedGif!,),
                 ],
               ),
             ),
@@ -360,12 +480,8 @@ class _MoveDownIntent extends Intent {
   const _MoveDownIntent();
 }
 
-class _StartIntent extends Intent {
-  const _StartIntent();
-}
-
-class _StopIntent extends Intent {
-  const _StopIntent();
+class _ToggleRecordingIntent extends Intent {
+  const _ToggleRecordingIntent();
 }
 
 class _PostponeIntent extends Intent {
