@@ -16,6 +16,7 @@ class AppState {
     this.currentMarkStartedAt,
     this.logs = const [],
     this.isPreviewRunning = false,
+    this.isTestRecording = false,
     this.isScheduleInputVisible = true,
   });
 
@@ -29,6 +30,7 @@ class AppState {
   final DateTime? currentMarkStartedAt;
   final List<String> logs;
   final bool isPreviewRunning;
+  final bool isTestRecording;
   final bool isScheduleInputVisible;
 
   ScheduleItem? get selectedItem {
@@ -50,6 +52,7 @@ class AppState {
     bool clearMarkStart = false,
     List<String>? logs,
     bool? isPreviewRunning,
+    bool? isTestRecording,
     bool? isScheduleInputVisible,
   }) {
     return AppState(
@@ -63,6 +66,7 @@ class AppState {
       currentMarkStartedAt: clearMarkStart ? null : (currentMarkStartedAt ?? this.currentMarkStartedAt),
       logs: logs ?? this.logs,
       isPreviewRunning: isPreviewRunning ?? this.isPreviewRunning,
+      isTestRecording: isTestRecording ?? this.isTestRecording,
       isScheduleInputVisible: isScheduleInputVisible ?? this.isScheduleInputVisible,
     );
   }
