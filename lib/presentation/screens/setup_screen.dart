@@ -25,12 +25,37 @@ class SetupScreen extends ConsumerWidget {
       CaptureSourceKind.deckLink,
     ];
 
+    final List<String> gifs = [
+      'blue',
+      'red',
+      'fitness',
+      'lenta',
+    ];
+    String selectedGif = gifs.first;
     final codecOptions = Platform.isMacOS
         ? const ['h264_videotoolbox', 'hevc_videotoolbox', 'libx264']
         : const ['libx264', 'h264_nvenc', 'hevc_nvenc', 'h264_qsv', 'hevc_qsv', 'h264_amf', 'hevc_amf'];
 
     return Scaffold(
-      appBar: AppBar(title: Text(AppLocalizations.tr(lang, 'setupTitle'))),
+      appBar: AppBar(
+        title: Row(
+          children: [
+            Text(AppLocalizations.tr(lang, 'setupTitle')),
+            const SizedBox(width: 5),
+            Text(AppLocalizations.tr(lang, 'setupVersion'), 
+              style:
+              TextStyle(
+                color: Colors.grey.shade600,
+                fontSize: 13)
+              ),
+            Text(cfg.version,
+              style:
+              TextStyle(
+                color: Colors.grey.shade600,
+                fontSize: 13))
+            ],
+          )
+        ),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -79,6 +104,10 @@ class SetupScreen extends ConsumerWidget {
                 onPressed: state.config.ffplayPath == null ? null : controller.togglePreview,
                 child: Text(state.isPreviewRunning ? AppLocalizations.tr(lang, 'stopPreview') : AppLocalizations.tr(lang, 'startPreview')),
               ),
+              OutlinedButton(
+                onPressed: state.config.ffmpegPath == null ? null : controller.toggleTestRecording,
+                child: Text(state.isTestRecording ? AppLocalizations.tr(lang, 'stopTestRecording') : AppLocalizations.tr(lang, 'startTestRecording')),
+              ),
             ]),
             const SizedBox(height: 12),
             Text('ffmpeg: ${cfg.ffmpegPath ?? AppLocalizations.tr(lang, 'notSelected')}'),
@@ -97,15 +126,42 @@ class SetupScreen extends ConsumerWidget {
               ),
             ]),
             const SizedBox(height: 8),
-            DropdownButton<CaptureSourceKind>(
-              value: cfg.sourceKind,
-              hint: Text(AppLocalizations.tr(lang, 'captureSource')),
-              items: sourceChoices
-                  .map((s) => DropdownMenuItem(value: s, child: Text(s.name)))
-                  .toList(),
-              onChanged: (value) async {
-                await controller.updateConfig(cfg.copyWith(sourceKind: value, clearVideoDevice: true, clearAudioDevice: true));
-              },
+            Row(
+              children: [
+                IntrinsicWidth(
+                  child: DropdownButton<CaptureSourceKind>(
+                    value: cfg.sourceKind,
+                    hint: Text(AppLocalizations.tr(lang, 'captureSource')),
+                    items: sourceChoices
+                        .map((s) => DropdownMenuItem(value: s, child: Text(s.name)))
+                        .toList(),
+                    onChanged: (value) async {
+                      await controller.updateConfig(cfg.copyWith(sourceKind: value, clearVideoDevice: true, clearAudioDevice: true));
+                    },
+                  ),
+                ),
+                const SizedBox(width: 12),
+                IntrinsicWidth(
+                  child: DropdownButtonFormField<String>(
+                    initialValue: selectedGif,
+                    decoration: InputDecoration(
+                      labelText: AppLocalizations.tr(lang, 'nameGifsTitre'),
+                      border: const OutlineInputBorder(),
+                    ),
+                    items: gifs.map((String key) {
+                      return DropdownMenuItem<String>(
+                        value: key,
+                        child: Text(key),
+                      );
+                    }).toList(),
+                    onChanged: (String? newValue) async {
+                      if (newValue != null) {
+                        await controller.updateConfig(cfg.copyWith(selectedGif: newValue));
+                      }
+                    },
+                  ),
+                ),
+              ]
             ),
             const SizedBox(height: 8),
             Row(children: [
@@ -207,7 +263,7 @@ class SetupScreen extends ConsumerWidget {
             ]),
             const SizedBox(height: 12),
             FilledButton(
-              onPressed: cfg.isComplete ? controller.enterWorkMode : null,
+              onPressed: cfg.isComplete && state.devices.isNotEmpty ? controller.enterWorkMode : null,
               child: Text(AppLocalizations.tr(lang, 'continueToWork')),
             ),
             const SizedBox(height: 12),
