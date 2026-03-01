@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:flutter_animate/flutter_animate.dart';
 
+import '../../data/services/config_services.dart';
+
 class GifTitres extends StatefulWidget {
   const GifTitres({
     super.key,
@@ -19,38 +21,14 @@ class GifTitres extends StatefulWidget {
 }
 
 class GifTitresState extends State<GifTitres> {
+  final ConfigService _configService = ConfigService();
   final Map<String, String> gifs = {
     'blue': 'lib/data/assets/blue.gif',
     'red': 'lib/data/assets/red.gif',
     'fitness': 'lib/data/assets/fitness.gif',
     'lenta': 'lib/data/assets/lenta.gif',
   };
-  final Map<String, Map<String, double>> textPositions = {
-    'blue': {
-      'fioLeft': 0.25,
-      'fioBottom': 0.45,
-      'cityLeft': 0.2,
-      'cityBottom': 0.15,
-    },
-    'red': {
-      'fioLeft': 0.25,
-      'fioBottom': 0.45,
-      'cityLeft': 0.2,
-      'cityBottom': 0.15,
-    },
-    'fitness': {
-      'fioLeft': 0.25,
-      'fioBottom': 0.5,
-      'cityLeft': 0.45,
-      'cityBottom': 0.23,
-    },
-    'lenta': {
-      'fioLeft': 0.23,
-      'fioBottom': 0.28,
-      'cityLeft': 0.25,
-      'cityBottom': 0.18,
-    },
-  };
+  
   
   String _currentFio = '';
   String _currentCity = '';
@@ -59,7 +37,7 @@ class GifTitresState extends State<GifTitres> {
   Timer? _scheduleTimer;
   late String _selectedGif;
 
-  Map<String, double> get _currentPositions => textPositions[_selectedGif]!;
+  Map<String, double> get _currentPositions => _configService.textPositions[_selectedGif]!;
 
   void showGifWithData({required String fio, required String city, String? gifKey}) {
     _resetGif();
@@ -139,7 +117,12 @@ class GifTitresState extends State<GifTitres> {
   @override
   void initState() {
     _selectedGif = widget.selectedGif;
+    _loadConfig();
     super.initState();
+  }
+
+  Future<void> _loadConfig() async {
+    await _configService.loadConfig();
   }
 
   @override
