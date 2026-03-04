@@ -477,6 +477,13 @@ class AppController extends StateNotifier<AppState>  {
 
   void deleteItem(int index) {
     if (index < 0 || index >= state.schedule.length) return;
+
+    final item = state.schedule[index];
+    if (state.isRecordingMarked && item.status == ScheduleItemStatus.active) {
+      _appendLog('Cannot DELETE: active participant is currently recording.');
+      return;
+    }
+
     final updated = [...state.schedule];
     final removed = updated.removeAt(index);
 

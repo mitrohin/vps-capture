@@ -40,6 +40,7 @@ class ScheduleList extends StatelessWidget {
         final isDone = item.status == ScheduleItemStatus.done;
         final canStartThisItem = !isRecordingMarked || isActive;
         final canPostponeThisItem = !isRecordingMarked || isActive;
+        final canDeleteThisItem = !(isRecordingMarked && isActive);
         return ListTile(
           selected: isSelected,
           onTap: () => onSelect(index),
@@ -66,7 +67,7 @@ class ScheduleList extends StatelessWidget {
                 ),
                 IconButton(
                   tooltip: AppLocalizations.tr(languageCode, 'deleteEntry'),
-                  onPressed: () => onDelete(index),
+                  onPressed: canDeleteThisItem ? () => onDelete(index) : null,
                   icon: const Icon(Icons.close, color: Colors.red),
                 ),
               ] else ...[
@@ -86,7 +87,7 @@ class ScheduleList extends StatelessWidget {
                 ),
                 IconButton(
                   tooltip: AppLocalizations.tr(languageCode, 'deleteEntry'),
-                  onPressed: () => onDelete(index),
+                  onPressed: canDeleteThisItem ? () => onDelete(index) : null,
                   icon: const Icon(Icons.close, color: Colors.red),
                 ),
               ],
