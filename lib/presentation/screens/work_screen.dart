@@ -526,8 +526,10 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
                           Expanded(
                             child: ScheduleList(
                               items: filteredItems,
-                              selectedIndex: state.selectedIndex != null 
-                                  ? filteredItems.indexWhere((item) => 
+                              selectedIndex: (state.selectedIndex != null &&
+                                      state.selectedIndex! >= 0 &&
+                                      state.selectedIndex! < state.schedule.length)
+                                  ? filteredItems.indexWhere((item) =>
                                       item.id == state.schedule[state.selectedIndex!].id)
                                   : null,
                               onSelect: (filteredIndex) {

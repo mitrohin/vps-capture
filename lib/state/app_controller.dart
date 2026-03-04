@@ -498,7 +498,11 @@ class AppController extends StateNotifier<AppState>  {
       }
     }
 
-    state = state.copyWith(schedule: updated, selectedIndex: nextSelectedIndex);
+    state = state.copyWith(
+      schedule: updated,
+      selectedIndex: nextSelectedIndex,
+      clearSelectedIndex: updated.isEmpty,
+    );
     createScheduleFile();
     _appendLog('Deleted item: ${removed.label}.');
   }
