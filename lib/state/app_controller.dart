@@ -475,6 +475,73 @@ class AppController extends StateNotifier<AppState>  {
     _appendLog('Restored item: ${item.label}.');
   }
 
+  void deleteItem(int index) {
+    if (index < 0 || index >= state.schedule.length) return;
+
+    final item = state.schedule[index];
+    if (state.isRecordingMarked && item.status == ScheduleItemStatus.active) {
+      _appendLog('Cannot DELETE: active participant is currently recording.');
+      return;
+    }
+
+    final updated = [...state.schedule];
+    final removed = updated.removeAt(index);
+
+    var nextSelectedIndex = state.selectedIndex;
+    if (updated.isEmpty) {
+      nextSelectedIndex = null;
+    } else if (nextSelectedIndex != null) {
+      if (index < nextSelectedIndex) {
+        nextSelectedIndex -= 1;
+      } else if (index == nextSelectedIndex) {
+        nextSelectedIndex = index >= updated.length ? updated.length - 1 : index;
+      }
+    }
+
+    state = state.copyWith(
+      schedule: updated,
+      selectedIndex: nextSelectedIndex,
+      clearSelectedIndex: updated.isEmpty,
+    );
+    createScheduleFile();
+    _appendLog('Deleted item: ${removed.label}.');
+  }
+
+  void addParticipant({
+    required String fio,
+    required String city,
+    String? apparatus,
+    int? threadIndex,
+    int? typeIndex,
+  }) {
+    final trimmedFio = fio.trim();
+    final trimmedCity = city.trim();
+    final trimmedApparatus = apparatus?.trim();
+    if (trimmedFio.isEmpty || trimmedCity.isEmpty) {
+      _appendLog('Cannot ADD participant: empty name or city.');
+      return;
+    }
+
+    final generatedId = 'manual-${DateTime.now().millisecondsSinceEpoch}';
+    final item = ScheduleItem(
+      id: generatedId,
+      fio: trimmedFio,
+      city: trimmedCity,
+      apparatus: trimmedApparatus?.isEmpty == true ? null : trimmedApparatus,
+      threadIndex: threadIndex,
+      typeIndex: typeIndex,
+    );
+
+    final updated = [...state.schedule, item];
+    state = state.copyWith(
+      schedule: updated,
+      selectedIndex: updated.length - 1,
+      isScheduleInputVisible: false,
+    );
+    createScheduleFile();
+    _appendLog('Added participant: ${item.label}.');
+  }
+
   void selectIndex(int index) {
     if (index < 0 || index >= state.schedule.length) return;
     state = state.copyWith(selectedIndex: index);

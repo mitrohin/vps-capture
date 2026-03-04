@@ -13,6 +13,7 @@ class ScheduleList extends StatelessWidget {
     required this.onStop,
     required this.onPostpone,
     required this.onRestore,
+    required this.onDelete,
     required this.isRecordingMarked,
     required this.languageCode,
   });
@@ -24,6 +25,7 @@ class ScheduleList extends StatelessWidget {
   final Future<void> Function(int index) onStop;
   final Future<void> Function(int index) onPostpone;
   final ValueChanged<int> onRestore;
+  final ValueChanged<int> onDelete;
   final bool isRecordingMarked;
   final String languageCode;
 
@@ -38,12 +40,14 @@ class ScheduleList extends StatelessWidget {
         final isDone = item.status == ScheduleItemStatus.done;
         final canStartThisItem = !isRecordingMarked || isActive;
         final canPostponeThisItem = !isRecordingMarked || isActive;
+        final canDeleteThisItem = !(isRecordingMarked && isActive);
         return ListTile(
           selected: isSelected,
           onTap: () => onSelect(index),
           title: Text(
             item.label,
             style: TextStyle(
+              fontSize: 32,
               decoration: item.status == ScheduleItemStatus.done ? TextDecoration.lineThrough : null,
             ),
           ),
@@ -51,14 +55,22 @@ class ScheduleList extends StatelessWidget {
             spacing: 4,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              Text(_statusText(item.status)),
-              if (isDone)
+              Text(
+                _statusText(item.status),
+                style: const TextStyle(fontSize: 24),
+              ),
+              if (isDone) ...[
                 IconButton(
                   tooltip: AppLocalizations.tr(languageCode, 'restoreEntry'),
                   onPressed: () => onRestore(index),
                   icon: const Icon(Icons.undo),
-                )
-              else ...[
+                ),
+                IconButton(
+                  tooltip: AppLocalizations.tr(languageCode, 'deleteEntry'),
+                  onPressed: canDeleteThisItem ? () => onDelete(index) : null,
+                  icon: const Icon(Icons.close, color: Colors.red),
+                ),
+              ] else ...[
                 IconButton(
                   tooltip: isActive
                       ? AppLocalizations.tr(languageCode, 'stopHotkey')
@@ -72,6 +84,11 @@ class ScheduleList extends StatelessWidget {
                   tooltip: AppLocalizations.tr(languageCode, 'postponeHotkey'),
                   onPressed: canPostponeThisItem ? () => onPostpone(index) : null,
                   icon: const Icon(Icons.keyboard_double_arrow_down),
+                ),
+                IconButton(
+                  tooltip: AppLocalizations.tr(languageCode, 'deleteEntry'),
+                  onPressed: canDeleteThisItem ? () => onDelete(index) : null,
+                  icon: const Icon(Icons.close, color: Colors.red),
                 ),
               ],
             ],
