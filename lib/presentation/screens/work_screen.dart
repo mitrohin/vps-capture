@@ -136,7 +136,7 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
   }
 
   int getGlobalIndex(int filteredIndex) {
-    final state = ref.watch(appControllerProvider);
+    final state = ref.read(appControllerProvider);
     final filteredItems = _getFilteredItems(state.schedule);
     if (filteredIndex < 0 || filteredIndex >= filteredItems.length) return -1;
     
@@ -159,6 +159,107 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
     super.dispose();
   }
 
+
+
+  void _moveSelectionUp() {
+    final state = ref.read(appControllerProvider);
+    final controller = ref.read(appControllerProvider.notifier);
+    final filteredItems = _getFilteredItems(state.schedule);
+    if (filteredItems.isEmpty) return;
+
+    final selectedFilteredIndex = state.selectedIndex != null
+        ? filteredItems.indexWhere((item) => item.id == state.schedule[state.selectedIndex!].id)
+        : -1;
+
+    final targetFilteredIndex = selectedFilteredIndex <= 0
+        ? 0
+        : selectedFilteredIndex - 1;
+    final globalIndex = getGlobalIndex(targetFilteredIndex);
+    if (globalIndex != -1) {
+      controller.selectIndex(globalIndex);
+    }
+  }
+
+  void _moveSelectionDown() {
+    final state = ref.read(appControllerProvider);
+    final controller = ref.read(appControllerProvider.notifier);
+    final filteredItems = _getFilteredItems(state.schedule);
+    if (filteredItems.isEmpty) return;
+
+    final selectedFilteredIndex = state.selectedIndex != null
+        ? filteredItems.indexWhere((item) => item.id == state.schedule[state.selectedIndex!].id)
+        : -1;
+
+    final targetFilteredIndex = selectedFilteredIndex < 0
+        ? 0
+        : (selectedFilteredIndex + 1).clamp(0, filteredItems.length - 1);
+    final globalIndex = getGlobalIndex(targetFilteredIndex);
+    if (globalIndex != -1) {
+      controller.selectIndex(globalIndex);
+    }
+  }
+
+  Future<void> _showAddParticipantDialog(String lang) async {
+    final fioController = TextEditingController();
+    final cityController = TextEditingController();
+    final apparatusController = TextEditingController();
+
+    await showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(AppLocalizations.tr(lang, 'addParticipant')),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: fioController,
+              decoration: InputDecoration(
+                labelText: AppLocalizations.tr(lang, 'participantNameLabel'),
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: cityController,
+              decoration: InputDecoration(
+                labelText: AppLocalizations.tr(lang, 'participantCityLabel'),
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: apparatusController,
+              decoration: InputDecoration(
+                labelText: AppLocalizations.tr(lang, 'participantApparatusLabel'),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(AppLocalizations.tr(lang, 'cancel')),
+          ),
+          FilledButton(
+            onPressed: () {
+              ref.read(appControllerProvider.notifier).addParticipant(
+                    fio: fioController.text,
+                    city: cityController.text,
+                    apparatus: apparatusController.text,
+                    threadIndex: _selectedThreadFilter,
+                    typeIndex: _selectedTypeFilter,
+                  );
+              Navigator.of(context).pop();
+            },
+            child: Text(AppLocalizations.tr(lang, 'add')),
+          ),
+        ],
+      ),
+    );
+
+    fioController.dispose();
+    cityController.dispose();
+    apparatusController.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(appControllerProvider);
@@ -178,8 +279,8 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
       },
       child: Actions(
         actions: {
-          _MoveUpIntent: CallbackAction<_MoveUpIntent>(onInvoke: (_) => controller.selectPrevious()),
-          _MoveDownIntent: CallbackAction<_MoveDownIntent>(onInvoke: (_) => controller.selectNext()),
+          _MoveUpIntent: CallbackAction<_MoveUpIntent>(onInvoke: (_) => _moveSelectionUp()),
+          _MoveDownIntent: CallbackAction<_MoveDownIntent>(onInvoke: (_) => _moveSelectionDown()),
           _ToggleRecordingIntent: CallbackAction<_ToggleRecordingIntent>(
             onInvoke: (_) {
               if (state.isRecordingMarked) {
@@ -236,6 +337,11 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
                   tooltip: AppLocalizations.tr(lang, 'loadSchedule'),
                   onPressed: controller.loadSchedule,
                   icon: const Icon(Icons.upload_file),
+                ),
+                IconButton(
+                  tooltip: AppLocalizations.tr(lang, 'addParticipant'),
+                  onPressed: () => _showAddParticipantDialog(lang),
+                  icon: const Icon(Icons.person_add),
                 ),
                 IconButton(
                   tooltip: state.isPreviewRunning ? AppLocalizations.tr(lang, 'stopPreview') : AppLocalizations.tr(lang, 'startPreview'),
@@ -452,6 +558,12 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
                                 final globalIndex = getGlobalIndex(filteredIndex);
                                 if (globalIndex != -1) {
                                   controller.restoreItem(globalIndex);
+                                }
+                              },
+                              onDelete: (filteredIndex) {
+                                final globalIndex = getGlobalIndex(filteredIndex);
+                                if (globalIndex != -1) {
+                                  controller.deleteItem(globalIndex);
                                 }
                               },
                               isRecordingMarked: state.isRecordingMarked,
