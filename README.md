@@ -32,3 +32,7 @@ Gym Capture is a desktop app for gymnastics competitions. It continuously record
 - To add a new language, add code to `supportedLanguages` and a map entry in `dictionary`.
 
 - If auto install fails due to network policy, use manual "Pick ffmpeg path..." and "Pick ffplay path...".
+## User documentation
+- Russian full user guide: `docs/user_guide_ru.md`.
+- Russian import sample files: `docs/import_examples/*.txt`.
+
