@@ -76,6 +76,12 @@ VPS Capture — это десктоп-приложение для соревно
 
 Ниже несколько готовых вариантов, которые можно сохранить как `.txt` или `.csv` и загрузить в приложение.
 
+Эти же примеры добавлены в репозиторий отдельными файлами:
+- `docs/import_examples/ru_example_01_simple.txt`
+- `docs/import_examples/ru_example_02_one_thread_two_types.txt`
+- `docs/import_examples/ru_example_03_two_threads_mixed_types.txt`
+- `docs/import_examples/ru_example_04_with_empty_lines.txt`
+
 **Пример 1 — простой список без блоков**
 ```
 Иванова Анна;Москва;Бревно
