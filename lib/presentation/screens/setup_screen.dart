@@ -143,7 +143,7 @@ class SetupScreen extends ConsumerWidget {
                 const SizedBox(width: 12),
                 IntrinsicWidth(
                   child: DropdownButtonFormField<String>(
-                    initialValue: selectedGif,
+                    value: selectedGif,
                     decoration: InputDecoration(
                       labelText: AppLocalizations.tr(lang, 'nameGifsTitre'),
                       border: const OutlineInputBorder(),
