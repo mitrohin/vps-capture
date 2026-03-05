@@ -40,7 +40,7 @@ class ConfigService {
   };
 
   Future<void> loadConfig() async {
-    final configPath = AppPaths.getExecutableDirectory();
+    final configPath = AppPaths.getScheduleStorageDirectory();
     final configFile = File(path.join(configPath, configFileName));
     if (!await configFile.exists()) return;
 
@@ -61,4 +61,3 @@ class ConfigService {
     textPositions = loaded;
   }
 }
-
