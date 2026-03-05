@@ -227,7 +227,7 @@ class AppController extends StateNotifier<AppState>  {
 
   void createScheduleFile() {
     final scheduleFileData = state.schedule;
-    final scheduleFileDir = AppPaths.getExecutableDirectory();
+    final scheduleFileDir = AppPaths.getScheduleStorageDirectory();
     final filePath = p.join(scheduleFileDir, 'schedule.json');
     final jsonData = scheduleFileData.map((item) => {
       'id': item.id,
@@ -248,7 +248,7 @@ class AppController extends StateNotifier<AppState>  {
 
   Future<void> loadScheduleFromFile() async {
     try {
-      final scheduleFileDir = AppPaths.getExecutableDirectory();
+      final scheduleFileDir = AppPaths.getScheduleStorageDirectory();
       final filePath = p.join(scheduleFileDir, 'schedule.json');
       final file = File(filePath);
       
@@ -300,7 +300,7 @@ class AppController extends StateNotifier<AppState>  {
 
   Future<void> _updateScheduleItemInFile(ScheduleItem updatedItem) async {
     try {
-      final scheduleFileDir = AppPaths.getExecutableDirectory();
+      final scheduleFileDir = AppPaths.getScheduleStorageDirectory();
       final filePath = p.join(scheduleFileDir, 'schedule.json');
       final file = File(filePath);
       
