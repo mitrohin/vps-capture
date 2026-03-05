@@ -90,9 +90,8 @@ class AppController extends StateNotifier<AppState>  {
     );
     state = state.copyWith(config: cfg);
     await loadScheduleFromFile();
-    if (hasCompletedFirstLaunch) {
-      state = state.copyWith(mode: AppMode.work);
-      _appendLog('Entered work mode automatically after first launch.');
+    if (hasCompletedFirstLaunch && cfg.isComplete) {
+      await enterWorkMode();
     }
   }
 
