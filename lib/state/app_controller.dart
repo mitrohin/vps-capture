@@ -251,9 +251,22 @@ class AppController extends StateNotifier<AppState>  {
       final scheduleFileDir = AppPaths.getScheduleStorageDirectory();
       final filePath = p.join(scheduleFileDir, 'schedule.json');
       final file = File(filePath);
-      
+
+      File? sourceFile;
       if (await file.exists()) {
-        final jsonString = await file.readAsString();
+        sourceFile = file;
+      } else if (Platform.isMacOS) {
+        final legacyFilePath = p.join(AppPaths.getExecutableDirectory(), 'schedule.json');
+        final legacyFile = File(legacyFilePath);
+        if (await legacyFile.exists()) {
+          sourceFile = legacyFile;
+          await legacyFile.copy(filePath);
+          _appendLog('Migrated schedule file from legacy path to $filePath');
+        }
+      }
+
+      if (sourceFile != null) {
+        final jsonString = await sourceFile.readAsString();
         final List<dynamic> jsonData = jsonDecode(jsonString);
         final List<ScheduleItem> loadedSchedule = jsonData.map((item) {
           return ScheduleItem(
@@ -262,8 +275,8 @@ class AppController extends StateNotifier<AppState>  {
             apparatus: item['apparatus'],
             city: item['city'],
             status: _parseStatus(item['status']),
-            startedAt: item['startedAt'] != null 
-                ? DateTime.parse(item['startedAt']) 
+            startedAt: item['startedAt'] != null
+                ? DateTime.parse(item['startedAt'])
                 : null,
             threadIndex: item['threadIndex'],
             typeIndex: item['typeIndex'],
