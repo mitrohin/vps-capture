@@ -15,9 +15,6 @@ class ScheduleDecoder {
       return cp1251;
     }
 
-    if (_cyrillicCount(utf8Text) == 0 && _cyrillicCount(cp1251) > 0) {
-      return cp1251;
-    }
 
     return utf8Text;
   }
