@@ -200,9 +200,9 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
   }
 
   Future<void> _showAddParticipantDialog(String lang) async {
-    final fioController = TextEditingController();
-    final cityController = TextEditingController();
-    final apparatusController = TextEditingController();
+    var fio = '';
+    var city = '';
+    var apparatus = '';
 
     final result = await showDialog<({String fio, String city, String apparatus})>(
       context: context,
@@ -212,21 +212,21 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
-              controller: fioController,
+              onChanged: (value) => fio = value,
               decoration: InputDecoration(
                 labelText: AppLocalizations.tr(lang, 'participantNameLabel'),
               ),
             ),
             const SizedBox(height: 8),
             TextField(
-              controller: cityController,
+              onChanged: (value) => city = value,
               decoration: InputDecoration(
                 labelText: AppLocalizations.tr(lang, 'participantCityLabel'),
               ),
             ),
             const SizedBox(height: 8),
             TextField(
-              controller: apparatusController,
+              onChanged: (value) => apparatus = value,
               decoration: InputDecoration(
                 labelText: AppLocalizations.tr(lang, 'participantApparatusLabel'),
               ),
@@ -242,9 +242,9 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
             onPressed: () {
               Navigator.of(context).pop(
                 (
-                  fio: fioController.text,
-                  city: cityController.text,
-                  apparatus: apparatusController.text,
+                  fio: fio,
+                  city: city,
+                  apparatus: apparatus,
                 ),
               );
             },
@@ -253,10 +253,6 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
         ],
       ),
     );
-
-    fioController.dispose();
-    cityController.dispose();
-    apparatusController.dispose();
 
     if (!mounted || result == null) {
       return;
