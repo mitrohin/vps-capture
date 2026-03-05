@@ -237,6 +237,117 @@ class SetupScreen extends ConsumerWidget {
                 },
               ),
             ]),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 12,
+              runSpacing: 8,
+              children: [
+                SizedBox(
+                  width: 140,
+                  child: TextFormField(
+                    initialValue: '${cfg.fps}',
+                    decoration: const InputDecoration(labelText: 'FPS', border: OutlineInputBorder()),
+                    keyboardType: TextInputType.number,
+                    onFieldSubmitted: (value) async {
+                      final parsed = int.tryParse(value);
+                      if (parsed != null && parsed > 0) {
+                        await controller.updateConfig(cfg.copyWith(fps: parsed));
+                      }
+                    },
+                  ),
+                ),
+                SizedBox(
+                  width: 180,
+                  child: TextFormField(
+                    initialValue: '${cfg.segmentSeconds}',
+                    decoration: const InputDecoration(labelText: 'Segment sec', border: OutlineInputBorder()),
+                    keyboardType: TextInputType.number,
+                    onFieldSubmitted: (value) async {
+                      final parsed = int.tryParse(value);
+                      if (parsed != null && parsed > 0) {
+                        await controller.updateConfig(cfg.copyWith(segmentSeconds: parsed));
+                      }
+                    },
+                  ),
+                ),
+                SizedBox(
+                  width: 180,
+                  child: TextFormField(
+                    initialValue: '${cfg.bufferMinutes}',
+                    decoration: InputDecoration(labelText: AppLocalizations.tr(lang, 'bufferMin'), border: const OutlineInputBorder()),
+                    keyboardType: TextInputType.number,
+                    onFieldSubmitted: (value) async {
+                      final parsed = int.tryParse(value);
+                      if (parsed != null && parsed > 0) {
+                        await controller.updateConfig(cfg.copyWith(bufferMinutes: parsed));
+                      }
+                    },
+                  ),
+                ),
+                SizedBox(
+                  width: 180,
+                  child: TextFormField(
+                    initialValue: '${cfg.preRollSeconds}',
+                    decoration: InputDecoration(labelText: AppLocalizations.tr(lang, 'preRollSec'), border: const OutlineInputBorder()),
+                    keyboardType: TextInputType.number,
+                    onFieldSubmitted: (value) async {
+                      final parsed = int.tryParse(value);
+                      if (parsed != null && parsed >= 0) {
+                        await controller.updateConfig(cfg.copyWith(preRollSeconds: parsed));
+                      }
+                    },
+                  ),
+                ),
+                SizedBox(
+                  width: 180,
+                  child: TextFormField(
+                    initialValue: cfg.videoBitrate,
+                    decoration: const InputDecoration(labelText: 'Video bitrate', border: OutlineInputBorder()),
+                    onFieldSubmitted: (value) async {
+                      if (value.trim().isNotEmpty) {
+                        await controller.updateConfig(cfg.copyWith(videoBitrate: value.trim()));
+                      }
+                    },
+                  ),
+                ),
+                SizedBox(
+                  width: 180,
+                  child: TextFormField(
+                    initialValue: cfg.audioBitrate,
+                    decoration: const InputDecoration(labelText: 'Audio bitrate', border: OutlineInputBorder()),
+                    onFieldSubmitted: (value) async {
+                      if (value.trim().isNotEmpty) {
+                        await controller.updateConfig(cfg.copyWith(audioBitrate: value.trim()));
+                      }
+                    },
+                  ),
+                ),
+                SizedBox(
+                  width: 180,
+                  child: TextFormField(
+                    initialValue: cfg.ffmpegPreset,
+                    decoration: const InputDecoration(labelText: 'FFmpeg preset', border: OutlineInputBorder()),
+                    onFieldSubmitted: (value) async {
+                      if (value.trim().isNotEmpty) {
+                        await controller.updateConfig(cfg.copyWith(ffmpegPreset: value.trim()));
+                      }
+                    },
+                  ),
+                ),
+                SizedBox(
+                  width: 180,
+                  child: TextFormField(
+                    initialValue: cfg.movFlags,
+                    decoration: const InputDecoration(labelText: 'movflags', border: OutlineInputBorder()),
+                    onFieldSubmitted: (value) async {
+                      if (value.trim().isNotEmpty) {
+                        await controller.updateConfig(cfg.copyWith(movFlags: value.trim()));
+                      }
+                    },
+                  ),
+                ),
+              ],
+            ),
             const SizedBox(height: 12),
             FilledButton(
               onPressed: cfg.isComplete && state.devices.isNotEmpty ? controller.enterWorkMode : null,

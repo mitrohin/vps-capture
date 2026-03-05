@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show LogicalKeyboardKey, PhysicalKeyboardKey;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -23,6 +25,7 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
   int delayTime = 3;
   final GlobalKey<GifTitresState> _gifTitresKey = GlobalKey<GifTitresState>();
   final TextEditingController _timeController = TextEditingController();
+  final FocusNode _listFocusNode = FocusNode(debugLabel: 'participants_list_focus');
 
   void _updateSelectedIndexAfterFilterChange() {
     final state = ref.read(appControllerProvider);
@@ -150,12 +153,19 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
     super.initState();
     _scheduleInputController = TextEditingController();
     _timeController.text = '2';
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (Platform.isWindows) {
+        _listFocusNode.requestFocus();
+      }
+    });
   }
 
   @override
   void dispose() {
     _scheduleInputController.dispose();
     _timeController.dispose();
+    _listFocusNode.dispose();
     super.dispose();
   }
 
@@ -312,6 +322,7 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
         },
         child: Focus(
           autofocus: true,
+          focusNode: _listFocusNode,
           child: Scaffold(
             appBar: AppBar(
               title: Row(
