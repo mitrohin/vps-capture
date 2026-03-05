@@ -76,8 +76,8 @@ class AppController extends StateNotifier<AppState>  {
       videoBitrate: _prefs!.getString('videoBitrate') ?? '8M',
       fps: _prefs!.getInt('fps') ?? 30,
       segmentSeconds: _prefs!.getInt('segmentSeconds') ?? 1,
-      bufferMinutes: _prefs!.getInt('bufferMinutes') ?? 8,
-      preRollSeconds: _prefs!.getInt('preRollSeconds') ?? 2,
+      bufferMinutes: 8,
+      preRollSeconds: 2,
       languageCode: _stringOrNull(_prefs!.getString('languageCode')) ?? 'en',
       selectedGif: _prefs!.getString('selectedGif') ?? 'blue',
       version: _prefs!.getString('version') ?? '1.0.0'
@@ -144,8 +144,6 @@ class AppController extends StateNotifier<AppState>  {
     await prefs.setString('videoBitrate', config.videoBitrate);
     await prefs.setInt('fps', config.fps);
     await prefs.setInt('segmentSeconds', config.segmentSeconds);
-    await prefs.setInt('bufferMinutes', config.bufferMinutes);
-    await prefs.setInt('preRollSeconds', config.preRollSeconds);
     await prefs.setString('languageCode', config.languageCode);
     await prefs.setString('selectedGif', config.selectedGif ?? 'blue');
     await prefs.setString('version', config.version);

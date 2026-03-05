@@ -236,30 +236,6 @@ class SetupScreen extends ConsumerWidget {
                   await controller.updateConfig(cfg.copyWith(codec: value));
                 },
               ),
-              const SizedBox(width: 8),
-              SizedBox(
-                width: 100,
-                child: TextFormField(
-                  initialValue: '${cfg.bufferMinutes}',
-                  decoration: InputDecoration(labelText: AppLocalizations.tr(lang, 'bufferMin')),
-                  onChanged: (v) async {
-                    final n = int.tryParse(v);
-                    if (n != null) await controller.updateConfig(cfg.copyWith(bufferMinutes: n));
-                  },
-                ),
-              ),
-              const SizedBox(width: 8),
-              SizedBox(
-                width: 120,
-                child: TextFormField(
-                  initialValue: '${cfg.preRollSeconds}',
-                  decoration: InputDecoration(labelText: AppLocalizations.tr(lang, 'preRollSec')),
-                  onChanged: (v) async {
-                    final n = int.tryParse(v);
-                    if (n != null) await controller.updateConfig(cfg.copyWith(preRollSeconds: n));
-                  },
-                ),
-              ),
             ]),
             const SizedBox(height: 12),
             FilledButton(
