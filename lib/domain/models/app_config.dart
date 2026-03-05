@@ -10,6 +10,9 @@ class AppConfig {
     this.selectedAudioDevice,
     this.codec,
     this.videoBitrate = '8M',
+    this.audioBitrate = '128k',
+    this.ffmpegPreset = 'veryfast',
+    this.movFlags = '+faststart',
     this.fps = 50,
     this.segmentSeconds = 1,
     this.bufferMinutes = 8,
@@ -27,6 +30,9 @@ class AppConfig {
   final CaptureDevice? selectedAudioDevice;
   final String? codec;
   final String videoBitrate;
+  final String audioBitrate;
+  final String ffmpegPreset;
+  final String movFlags;
   final int fps;
   final int segmentSeconds;
   final int bufferMinutes;
@@ -51,6 +57,9 @@ class AppConfig {
     CaptureDevice? selectedAudioDevice,
     String? codec,
     String? videoBitrate,
+    String? audioBitrate,
+    String? ffmpegPreset,
+    String? movFlags,
     int? fps,
     int? segmentSeconds,
     int? bufferMinutes,
@@ -70,6 +79,9 @@ class AppConfig {
       selectedAudioDevice: clearAudioDevice ? null : (selectedAudioDevice ?? this.selectedAudioDevice),
       codec: codec ?? this.codec,
       videoBitrate: videoBitrate ?? this.videoBitrate,
+      audioBitrate: audioBitrate ?? this.audioBitrate,
+      ffmpegPreset: ffmpegPreset ?? this.ffmpegPreset,
+      movFlags: movFlags ?? this.movFlags,
       fps: fps ?? this.fps,
       segmentSeconds: segmentSeconds ?? this.segmentSeconds,
       bufferMinutes: bufferMinutes ?? this.bufferMinutes,

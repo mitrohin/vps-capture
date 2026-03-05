@@ -82,10 +82,13 @@ class AppController extends StateNotifier<AppState>  {
       selectedAudioDevice: _readDevice(_prefs!.getString('selectedAudioDevice')),
       codec: _stringOrNull(_prefs!.getString('codec')) ?? codec,
       videoBitrate: _prefs!.getString('videoBitrate') ?? '8M',
+      audioBitrate: _prefs!.getString('audioBitrate') ?? '128k',
+      ffmpegPreset: _prefs!.getString('ffmpegPreset') ?? 'veryfast',
+      movFlags: _prefs!.getString('movFlags') ?? '+faststart',
       fps: _prefs!.getInt('fps') ?? 30,
       segmentSeconds: _prefs!.getInt('segmentSeconds') ?? 1,
-      bufferMinutes: 8,
-      preRollSeconds: 2,
+      bufferMinutes: _prefs!.getInt('bufferMinutes') ?? 8,
+      preRollSeconds: _prefs!.getInt('preRollSeconds') ?? 2,
       languageCode: _stringOrNull(_prefs!.getString('languageCode')) ?? 'en',
       selectedGif: _prefs!.getString('selectedGif') ?? 'blue',
       version: _prefs!.getString('version') ?? '1.0.0'
@@ -150,8 +153,13 @@ class AppController extends StateNotifier<AppState>  {
     await prefs.setString('selectedAudioDevice', config.selectedAudioDevice == null ? '' : jsonEncode(config.selectedAudioDevice!.toJson()));
     await prefs.setString('codec', config.codec ?? '');
     await prefs.setString('videoBitrate', config.videoBitrate);
+    await prefs.setString('audioBitrate', config.audioBitrate);
+    await prefs.setString('ffmpegPreset', config.ffmpegPreset);
+    await prefs.setString('movFlags', config.movFlags);
     await prefs.setInt('fps', config.fps);
     await prefs.setInt('segmentSeconds', config.segmentSeconds);
+    await prefs.setInt('bufferMinutes', config.bufferMinutes);
+    await prefs.setInt('preRollSeconds', config.preRollSeconds);
     await prefs.setString('languageCode', config.languageCode);
     await prefs.setString('selectedGif', config.selectedGif ?? 'blue');
     await prefs.setString('version', config.version);
@@ -504,11 +512,12 @@ class AppController extends StateNotifier<AppState>  {
   void restoreItem(int index) {
     if (index < 0 || index >= state.schedule.length) return;
     final item = state.schedule[index];
-    if (item.status != ScheduleItemStatus.done) return;
+    if (item.status != ScheduleItemStatus.done && item.status != ScheduleItemStatus.postponed) return;
 
     final updated = [...state.schedule];
     updated[index] = item.copyWith(status: ScheduleItemStatus.pending, clearStartedAt: true);
     state = state.copyWith(schedule: updated, selectedIndex: index);
+    unawaited(_updateScheduleItemInFile(updated[index]));
     _appendLog('Restored item: ${item.label}.');
   }
 

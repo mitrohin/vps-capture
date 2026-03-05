@@ -79,7 +79,7 @@ class TestRecordService {
         '-safe', '0',
         '-i', listFile.path,
         '-c', 'copy',
-        '-movflags', '+faststart',
+        '-movflags', config.movFlags,
         '-y',
         outputPath,
       ];
