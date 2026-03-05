@@ -251,31 +251,35 @@ class AppController extends StateNotifier<AppState>  {
       final scheduleFileDir = AppPaths.getScheduleStorageDirectory();
       final filePath = p.join(scheduleFileDir, 'schedule.json');
       final file = File(filePath);
-      File? legacyFile;
-
-      if (Platform.isMacOS) {
-        final legacyFilePath = p.join(AppPaths.getExecutableDirectory(), 'schedule.json');
-        legacyFile = File(legacyFilePath);
-      }
+      final legacyFiles = Platform.isMacOS
+          ? AppPaths.getMacOSLegacyScheduleDirectories()
+              .map((dirPath) => File(p.join(dirPath, 'schedule.json')))
+              .toList(growable: false)
+          : <File>[];
 
       File? sourceFile;
       if (await file.exists()) {
         sourceFile = file;
-      } else if (legacyFile != null) {
-        if (await legacyFile.exists()) {
-          await legacyFile.copy(filePath);
-          sourceFile = file;
-          _appendLog('Migrated schedule file from legacy path to $filePath');
+      } else {
+        for (final legacyFile in legacyFiles) {
+          if (await legacyFile.exists()) {
+            await legacyFile.copy(filePath);
+            sourceFile = file;
+            _appendLog('Migrated schedule file from legacy path ${legacyFile.path} to $filePath');
+            break;
+          }
         }
       }
 
-      if (legacyFile != null && await legacyFile.exists()) {
-        try {
-          final legacyFilePath = legacyFile.path;
-          await legacyFile.delete();
-          _appendLog('Removed legacy schedule file at $legacyFilePath');
-        } catch (deleteError) {
-          _appendLog('Unable to remove legacy schedule file: $deleteError');
+      for (final legacyFile in legacyFiles) {
+        if (await legacyFile.exists()) {
+          try {
+            final legacyFilePath = legacyFile.path;
+            await legacyFile.delete();
+            _appendLog('Removed legacy schedule file at $legacyFilePath');
+          } catch (deleteError) {
+            _appendLog('Unable to remove legacy schedule file: $deleteError');
+          }
         }
       }
 
