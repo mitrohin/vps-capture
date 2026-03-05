@@ -204,7 +204,7 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
     final cityController = TextEditingController();
     final apparatusController = TextEditingController();
 
-    await showDialog<void>(
+    final result = await showDialog<({String fio, String city, String apparatus})>(
       context: context,
       builder: (context) => AlertDialog(
         title: Text(AppLocalizations.tr(lang, 'addParticipant')),
@@ -240,14 +240,13 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
           ),
           FilledButton(
             onPressed: () {
-              ref.read(appControllerProvider.notifier).addParticipant(
-                    fio: fioController.text,
-                    city: cityController.text,
-                    apparatus: apparatusController.text,
-                    threadIndex: _selectedThreadFilter,
-                    typeIndex: _selectedTypeFilter,
-                  );
-              Navigator.of(context).pop();
+              Navigator.of(context).pop(
+                (
+                  fio: fioController.text,
+                  city: cityController.text,
+                  apparatus: apparatusController.text,
+                ),
+              );
             },
             child: Text(AppLocalizations.tr(lang, 'add')),
           ),
@@ -258,6 +257,18 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
     fioController.dispose();
     cityController.dispose();
     apparatusController.dispose();
+
+    if (!mounted || result == null) {
+      return;
+    }
+
+    ref.read(appControllerProvider.notifier).addParticipant(
+          fio: result.fio,
+          city: result.city,
+          apparatus: result.apparatus,
+          threadIndex: _selectedThreadFilter,
+          typeIndex: _selectedTypeFilter,
+        );
   }
 
   @override
