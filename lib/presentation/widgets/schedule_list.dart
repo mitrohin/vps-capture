@@ -49,7 +49,7 @@ class _ScheduleListState extends State<ScheduleList> {
         final isDone = item.status == ScheduleItemStatus.done;
         final isPostponed = item.status == ScheduleItemStatus.postponed;
         final canStartThisItem = !widget.isRecordingMarked || isActive;
-        final canPostponeThisItem = !widget.isRecordingMarked || isActive;
+        final canPostponeThisItem = isPostponed || !widget.isRecordingMarked || isActive;
         final canDeleteThisItem = !(widget.isRecordingMarked && isActive);
         final rowColor = isSelected
             ? colorScheme.primary
