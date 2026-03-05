@@ -32,4 +32,23 @@ class AppPaths {
     final executableDir = Directory(executablePath).parent.path;
     return executableDir;
   }
+
+  static String getScheduleStorageDirectory() {
+    final executableDir = getExecutableDirectory();
+
+    if (Platform.isMacOS && executableDir.contains('.app/Contents/MacOS')) {
+      final home = Platform.environment['HOME'];
+      if (home != null && home.isNotEmpty) {
+        final appSupportDir = Directory(
+          p.join(home, 'Library', 'Application Support', 'gym_capture'),
+        );
+        if (!appSupportDir.existsSync()) {
+          appSupportDir.createSync(recursive: true);
+        }
+        return appSupportDir.path;
+      }
+    }
+
+    return executableDir;
+  }
 }
