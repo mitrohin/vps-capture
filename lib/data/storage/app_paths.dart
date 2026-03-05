@@ -33,6 +33,27 @@ class AppPaths {
     return executableDir;
   }
 
+  static List<String> getMacOSLegacyScheduleDirectories() {
+    if (!Platform.isMacOS) {
+      return const [];
+    }
+
+    final directories = <String>{};
+    directories.add(Directory(Platform.resolvedExecutable).parent.path);
+    directories.add(Directory(Platform.executable).parent.path);
+
+    for (final executablePath in [Platform.resolvedExecutable, Platform.executable]) {
+      final appIndex = executablePath.indexOf('.app/Contents/');
+      if (appIndex == -1) continue;
+
+      final appRootPath = executablePath.substring(0, appIndex + 4);
+      final bundleMacOSPath = p.join(appRootPath, 'Contents', 'MacOS');
+      directories.add(bundleMacOSPath);
+    }
+
+    return directories.toList(growable: false);
+  }
+
   static String getScheduleStorageDirectory() {
     if (Platform.isMacOS) {
       final home = Platform.environment['HOME'];
