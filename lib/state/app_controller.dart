@@ -63,6 +63,12 @@ class AppController extends StateNotifier<AppState>  {
 
   Future<void> initialize() async {
     _prefs = await SharedPreferences.getInstance();
+    final hasCompletedFirstLaunch = _prefs!.getBool('hasCompletedFirstLaunch') ?? false;
+
+    if (!hasCompletedFirstLaunch) {
+      await _prefs!.setBool('hasCompletedFirstLaunch', true);
+    }
+
     final located = await _locator.locate();
     final codec = Platform.isMacOS ? 'h264_videotoolbox' : 'libx264';
     final cfg = AppConfig(
@@ -84,8 +90,9 @@ class AppController extends StateNotifier<AppState>  {
     );
     state = state.copyWith(config: cfg);
     await loadScheduleFromFile();
-    if (cfg.isComplete && state.devices.isNotEmpty) {
-      await enterWorkMode();
+    if (hasCompletedFirstLaunch) {
+      state = state.copyWith(mode: AppMode.work);
+      _appendLog('Entered work mode automatically after first launch.');
     }
   }
 
