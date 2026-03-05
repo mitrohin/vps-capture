@@ -251,23 +251,31 @@ class AppController extends StateNotifier<AppState>  {
       final scheduleFileDir = AppPaths.getScheduleStorageDirectory();
       final filePath = p.join(scheduleFileDir, 'schedule.json');
       final file = File(filePath);
+      File? legacyFile;
+
+      if (Platform.isMacOS) {
+        final legacyFilePath = p.join(AppPaths.getExecutableDirectory(), 'schedule.json');
+        legacyFile = File(legacyFilePath);
+      }
 
       File? sourceFile;
       if (await file.exists()) {
         sourceFile = file;
-      } else if (Platform.isMacOS) {
-        final legacyFilePath = p.join(AppPaths.getExecutableDirectory(), 'schedule.json');
-        final legacyFile = File(legacyFilePath);
+      } else if (legacyFile != null) {
         if (await legacyFile.exists()) {
           await legacyFile.copy(filePath);
           sourceFile = file;
           _appendLog('Migrated schedule file from legacy path to $filePath');
-          try {
-            await legacyFile.delete();
-            _appendLog('Removed legacy schedule file at $legacyFilePath');
-          } catch (deleteError) {
-            _appendLog('Unable to remove legacy schedule file: $deleteError');
-          }
+        }
+      }
+
+      if (legacyFile != null && await legacyFile.exists()) {
+        try {
+          final legacyFilePath = legacyFile.path;
+          await legacyFile.delete();
+          _appendLog('Removed legacy schedule file at $legacyFilePath');
+        } catch (deleteError) {
+          _appendLog('Unable to remove legacy schedule file: $deleteError');
         }
       }
 
