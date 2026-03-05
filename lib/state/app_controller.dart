@@ -259,8 +259,8 @@ class AppController extends StateNotifier<AppState>  {
         final legacyFilePath = p.join(AppPaths.getExecutableDirectory(), 'schedule.json');
         final legacyFile = File(legacyFilePath);
         if (await legacyFile.exists()) {
-          sourceFile = legacyFile;
           await legacyFile.copy(filePath);
+          sourceFile = file;
           _appendLog('Migrated schedule file from legacy path to $filePath');
           try {
             await legacyFile.delete();
