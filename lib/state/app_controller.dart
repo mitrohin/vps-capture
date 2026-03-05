@@ -17,6 +17,7 @@ import '../data/capture/test_record_service.dart';
 import '../data/ffmpeg/device_scanner.dart';
 import '../data/ffmpeg/ffmpeg_installer.dart';
 import '../data/ffmpeg/ffmpeg_locator.dart';
+import '../data/schedule/schedule_decoder.dart';
 import '../data/schedule/schedule_parser.dart';
 import '../data/storage/app_paths.dart';
 import '../domain/models/app_config.dart';
@@ -54,6 +55,7 @@ class AppController extends StateNotifier<AppState>  {
   final FfmpegInstaller _installer;
   final DeviceScanner _scanner;
   final ScheduleParser _parser;
+  final ScheduleDecoder _scheduleDecoder = ScheduleDecoder();
   final CaptureService _capture;
   final PreviewService _preview;
   final TestRecordService _testRecorder;
@@ -164,7 +166,7 @@ class AppController extends StateNotifier<AppState>  {
       final res = await FilePicker.platform.pickFiles(type: FileType.custom, allowedExtensions: ['csv', 'txt']);
       if (res == null || res.files.single.path == null) return;
       final file = File(res.files.single.path!);
-      final content = await file.readAsString();
+      final content = _scheduleDecoder.decode(await file.readAsBytes());
       applySchedule(content, source: 'file');
       createScheduleFile();
     });
