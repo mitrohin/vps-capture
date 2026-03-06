@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show LogicalKeyboardKey, PhysicalKeyboardKey;
+import 'package:flutter/services.dart' show HardwareKeyboard, KeyDownEvent, LogicalKeyboardKey;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'dart:async';
 
@@ -287,19 +287,31 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
     final availableThreads = _getAvailableThreads(state.schedule);
     final availableTypes = _getAvailableTypes(state.schedule, _selectedThreadFilter);
 
-    return Shortcuts(
-      shortcuts: {
-        const SingleActivator(LogicalKeyboardKey.arrowUp): const _MoveUpIntent(),
-        const SingleActivator(LogicalKeyboardKey.arrowDown): const _MoveDownIntent(),
-        const SingleActivator(LogicalKeyboardKey.space): const _ToggleRecordingIntent(),
-        LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.altLeft): const _PostponeIntent(),
-      },
-      child: Actions(
-        actions: {
-          _MoveUpIntent: CallbackAction<_MoveUpIntent>(onInvoke: (_) => _moveSelectionUp()),
-          _MoveDownIntent: CallbackAction<_MoveDownIntent>(onInvoke: (_) => _moveSelectionDown()),
-          _ToggleRecordingIntent: CallbackAction<_ToggleRecordingIntent>(
-            onInvoke: (_) {
+    return Focus(
+          autofocus: true,
+          focusNode: _listFocusNode,
+          onKeyEvent: (_, event) {
+            if (event is! KeyDownEvent) {
+              return KeyEventResult.ignored;
+            }
+
+            if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+              _moveSelectionUp();
+              return KeyEventResult.handled;
+            }
+
+            if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+              _moveSelectionDown();
+              return KeyEventResult.handled;
+            }
+
+            if (event.logicalKey == LogicalKeyboardKey.altLeft &&
+                HardwareKeyboard.instance.isControlPressed) {
+              unawaited(controller.postpone());
+              return KeyEventResult.handled;
+            }
+
+            if (event.logicalKey == LogicalKeyboardKey.space) {
               if (state.isRecordingMarked) {
                 controller.stopMark();
               } else {
@@ -307,8 +319,8 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
                 if (currentSelectedIndex != null) {
                   _handleStartWithGif(currentSelectedIndex);
                 } else {
-                  final filteredItems = _getFilteredItems(state.schedule);
-                  if (filteredItems.isNotEmpty) {
+                  final filtered = _getFilteredItems(state.schedule);
+                  if (filtered.isNotEmpty) {
                     final globalIndex = getGlobalIndex(0);
                     if (globalIndex != -1) {
                       _handleStartWithGif(globalIndex);
@@ -316,13 +328,11 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
                   }
                 }
               }
-            },
-          ),
-          _PostponeIntent: CallbackAction<_PostponeIntent>(onInvoke: (_) => unawaited(controller.postpone())),
-        },
-        child: Focus(
-          autofocus: true,
-          focusNode: _listFocusNode,
+              return KeyEventResult.handled;
+            }
+
+            return KeyEventResult.ignored;
+          },
           child: Scaffold(
             appBar: AppBar(
               title: Row(
@@ -598,24 +608,6 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
                 ],
               ),
             ),
-          ),
-        ),
-      );
+          );
   }
-}
-
-class _MoveUpIntent extends Intent {
-  const _MoveUpIntent();
-}
-
-class _MoveDownIntent extends Intent {
-  const _MoveDownIntent();
-}
-
-class _ToggleRecordingIntent extends Intent {
-  const _ToggleRecordingIntent();
-}
-
-class _PostponeIntent extends Intent {
-  const _PostponeIntent();
 }
