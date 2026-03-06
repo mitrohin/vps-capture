@@ -81,7 +81,7 @@ class _ScheduleListState extends State<ScheduleList> {
                   Text(
                     _statusText(item.status),
                     style: TextStyle(
-                      fontSize: 16,
+                      fontSize: 12,
                       color: isSelected ? colorScheme.onPrimary : null,
                     ),
                   ),
