@@ -291,9 +291,11 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
           autofocus: true,
           focusNode: _listFocusNode,
           onKeyEvent: (_, event) {
-            if (event is! KeyDownEvent) {
+            if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
               return KeyEventResult.ignored;
             }
+
+            final isRepeat = event is KeyRepeatEvent;
 
             if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
               _moveSelectionUp();
@@ -313,7 +315,7 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
                 keyboard.isMetaPressed ||
                 keyboard.isShiftPressed;
 
-            if (!event.repeat &&
+            if (!isRepeat &&
                 isCtrlAltChord &&
                 (event.logicalKey == LogicalKeyboardKey.altLeft ||
                     event.logicalKey == LogicalKeyboardKey.controlLeft ||
