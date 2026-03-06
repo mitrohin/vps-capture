@@ -305,13 +305,24 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
               return KeyEventResult.handled;
             }
 
-            if (event.logicalKey == LogicalKeyboardKey.altLeft &&
-                HardwareKeyboard.instance.isControlPressed) {
+            final keyboard = HardwareKeyboard.instance;
+            final isCtrlAltChord = keyboard.isControlPressed &&
+                keyboard.isLogicalKeyPressed(LogicalKeyboardKey.altLeft);
+            final modifierPressed = keyboard.isControlPressed ||
+                keyboard.isAltPressed ||
+                keyboard.isMetaPressed ||
+                keyboard.isShiftPressed;
+
+            if (!event.repeat &&
+                isCtrlAltChord &&
+                (event.logicalKey == LogicalKeyboardKey.altLeft ||
+                    event.logicalKey == LogicalKeyboardKey.controlLeft ||
+                    event.logicalKey == LogicalKeyboardKey.controlRight)) {
               unawaited(controller.postpone());
               return KeyEventResult.handled;
             }
 
-            if (event.logicalKey == LogicalKeyboardKey.space) {
+            if (event.logicalKey == LogicalKeyboardKey.space && !modifierPressed) {
               if (state.isRecordingMarked) {
                 controller.stopMark();
               } else {
