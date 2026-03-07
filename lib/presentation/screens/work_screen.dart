@@ -149,6 +149,30 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
         scheduleItem.id == item.id);
   }
 
+  List<int?> _getVisibleThreadOrder(List<ScheduleItem> items) {
+    final threads = items.map((item) => item.threadIndex).toSet().toList();
+    threads.sort((a, b) => (a ?? -1).compareTo(b ?? -1));
+    return threads;
+  }
+
+  List<ScheduleListEntry> _buildThreadEntries(
+    List<ScheduleItem> items,
+    int? threadIndex,
+  ) {
+    if (threadIndex == null && items.isEmpty) {
+      return const [];
+    }
+
+    final entries = <ScheduleListEntry>[];
+    for (var index = 0; index < items.length; index++) {
+      final item = items[index];
+      if (item.threadIndex == threadIndex) {
+        entries.add(ScheduleListEntry(item: item, filteredIndex: index));
+      }
+    }
+    return entries;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -287,6 +311,25 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
     final filteredItems = _getFilteredItems(state.schedule);
     final availableThreads = _getAvailableThreads(state.schedule);
     final availableTypes = _getAvailableTypes(state.schedule, _selectedThreadFilter);
+    final selectedFilteredIndex = (state.selectedIndex != null &&
+            state.selectedIndex! >= 0 &&
+            state.selectedIndex! < state.schedule.length)
+        ? filteredItems.indexWhere((item) => item.id == state.schedule[state.selectedIndex!].id)
+        : null;
+    final selectedGlobalIndex = (selectedFilteredIndex != null && selectedFilteredIndex >= 0)
+        ? getGlobalIndex(selectedFilteredIndex)
+        : null;
+    final selectedItem = (selectedGlobalIndex != null &&
+            selectedGlobalIndex >= 0 &&
+            selectedGlobalIndex < state.schedule.length)
+        ? state.schedule[selectedGlobalIndex]
+        : null;
+    final threadOrder = _getVisibleThreadOrder(filteredItems);
+    final currentThread = selectedItem?.threadIndex ?? (threadOrder.isNotEmpty ? threadOrder.first : null);
+    final nextThreadCandidates = threadOrder.where((thread) => thread != currentThread).toList();
+    final nextThread = nextThreadCandidates.isNotEmpty ? nextThreadCandidates.first : null;
+    final currentThreadItems = _buildThreadEntries(filteredItems, currentThread);
+    final nextThreadItems = _buildThreadEntries(filteredItems, nextThread);
 
     return Focus(
           autofocus: true,
@@ -576,43 +619,74 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
                             ),
                           ),
                           const SizedBox(height: 8),
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.04),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Wrap(
+                              alignment: WrapAlignment.center,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              spacing: 10,
+                              runSpacing: 8,
+                              children: [
+                                FilledButton.tonal(
+                                  onPressed: (selectedGlobalIndex != null &&
+                                          !state.isRecordingMarked)
+                                      ? () => _handleStartWithGif(selectedGlobalIndex!)
+                                      : null,
+                                  style: FilledButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 18),
+                                    textStyle: const TextStyle(
+                                      fontSize: 28,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  child: Text(AppLocalizations.tr(lang, 'startStopButtonStart')),
+                                ),
+                                FilledButton.tonal(
+                                  onPressed: state.isRecordingMarked ? controller.stopMark : null,
+                                  style: FilledButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 18),
+                                    textStyle: const TextStyle(
+                                      fontSize: 28,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  child: Text(AppLocalizations.tr(lang, 'startStopButtonStop')),
+                                ),
+                                TextButton(
+                                  onPressed: (selectedGlobalIndex != null &&
+                                          selectedItem != null &&
+                                          selectedItem.status != ScheduleItemStatus.postponed)
+                                      ? () => controller.postpone(selectedGlobalIndex!)
+                                      : null,
+                                  child: Text(AppLocalizations.tr(lang, 'postponeEntry')),
+                                ),
+                                TextButton(
+                                  onPressed: (selectedGlobalIndex != null &&
+                                          selectedItem != null &&
+                                          (selectedItem.status == ScheduleItemStatus.postponed ||
+                                              selectedItem.status == ScheduleItemStatus.done))
+                                      ? () => controller.restoreItem(selectedGlobalIndex!)
+                                      : null,
+                                  child: Text(AppLocalizations.tr(lang, 'restoreEntry')),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 10),
                           Expanded(
                             child: ScheduleList(
-                              items: filteredItems,
-                              selectedIndex: (state.selectedIndex != null &&
-                                      state.selectedIndex! >= 0 &&
-                                      state.selectedIndex! < state.schedule.length)
-                                  ? filteredItems.indexWhere((item) =>
-                                      item.id == state.schedule[state.selectedIndex!].id)
-                                  : null,
+                              currentThreadItems: currentThreadItems,
+                              nextThreadItems: nextThreadItems,
+                              selectedIndex: selectedFilteredIndex,
                               onSelect: (filteredIndex) {
                                 final globalIndex = getGlobalIndex(filteredIndex);
                                 if (globalIndex != -1) {
                                   controller.selectIndex(globalIndex);
-                                }
-                              },
-                              onStart: (filteredIndex) async {
-                                final globalIndex = getGlobalIndex(filteredIndex);
-                                if (globalIndex != -1) {
-                                  _handleStartWithGif(globalIndex);
-                                }
-                              },
-                              onStop: (filteredIndex) async {
-                                final globalIndex = getGlobalIndex(filteredIndex);
-                                if (globalIndex != -1) {
-                                  await controller.stopMark(globalIndex);
-                                }
-                              },
-                              onPostpone: (filteredIndex) async {
-                                final globalIndex = getGlobalIndex(filteredIndex);
-                                if (globalIndex != -1) {
-                                  await controller.postpone(globalIndex);
-                                }
-                              },
-                              onRestore: (filteredIndex) {
-                                final globalIndex = getGlobalIndex(filteredIndex);
-                                if (globalIndex != -1) {
-                                  controller.restoreItem(globalIndex);
                                 }
                               },
                               onDelete: (filteredIndex) {
@@ -623,8 +697,11 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
                               },
                               isRecordingMarked: state.isRecordingMarked,
                               languageCode: lang,
+                              currentThreadTitle: AppLocalizations.tr(lang, 'currentThread'),
+                              nextThreadTitle: AppLocalizations.tr(lang, 'nextThread'),
                             ),
                           ),
+
                         ]
                       )
                   ),
