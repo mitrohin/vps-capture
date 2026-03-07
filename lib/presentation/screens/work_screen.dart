@@ -291,7 +291,7 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
           autofocus: true,
           focusNode: _listFocusNode,
           onKeyEvent: (_, event) {
-            if (event is! KeyDownEvent) {
+            if (event is! KeyDownEvent && !event.repeat) {
               return KeyEventResult.ignored;
             }
 
