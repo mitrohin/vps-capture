@@ -135,20 +135,18 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
     final threadOrder = _getVisibleThreadOrder(filteredItems).whereType<int>().toList();
     if (threadOrder.isEmpty) return null;
 
-    var currentThread = _selectedThreadFilter;
-    if (currentThread == null || !threadOrder.contains(currentThread)) {
-      currentThread = threadOrder.first;
+    final selectedThread = _selectedThreadFilter;
+    if (selectedThread != null && threadOrder.contains(selectedThread)) {
+      return selectedThread;
     }
 
-    while (_isThreadCompleted(filteredItems, currentThread!)) {
-      final nextThread = _nextThreadByNumber(threadOrder, currentThread);
-      if (nextThread == null) {
-        break;
+    for (final thread in threadOrder) {
+      if (!_isThreadCompleted(filteredItems, thread)) {
+        return thread;
       }
-      currentThread = nextThread;
     }
 
-    return currentThread;
+    return threadOrder.first;
   }
 
   List<ScheduleListEntry> _buildThreadEntries(
@@ -327,7 +325,8 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
     final nextThreadItems = _buildThreadEntries(filteredItems, nextThread);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || _selectedThreadFilter == currentThread) return;
+      if (!mounted || currentThread == null) return;
+      if (_selectedThreadFilter != null && threadOrder.contains(_selectedThreadFilter)) return;
       setState(() {
         _selectedThreadFilter = currentThread;
       });
