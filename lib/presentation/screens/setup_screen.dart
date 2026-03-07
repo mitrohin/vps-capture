@@ -248,10 +248,17 @@ class SetupScreen extends ConsumerWidget {
                     initialValue: '${cfg.fps}',
                     decoration: const InputDecoration(labelText: 'FPS', border: OutlineInputBorder()),
                     keyboardType: TextInputType.number,
+                    onTapOutside: (_) => FocusScope.of(context).unfocus(),
+                    onChanged: (value) async {
+                      final parsed = int.tryParse(value);
+                      if (parsed != null && parsed > 0 && parsed != state.config.fps) {
+                        await controller.updateConfig(state.config.copyWith(fps: parsed));
+                      }
+                    },
                     onFieldSubmitted: (value) async {
                       final parsed = int.tryParse(value);
                       if (parsed != null && parsed > 0) {
-                        await controller.updateConfig(cfg.copyWith(fps: parsed));
+                        await controller.updateConfig(state.config.copyWith(fps: parsed));
                       }
                     },
                   ),
@@ -303,9 +310,16 @@ class SetupScreen extends ConsumerWidget {
                   child: TextFormField(
                     initialValue: cfg.videoBitrate,
                     decoration: const InputDecoration(labelText: 'Video bitrate', border: OutlineInputBorder()),
+                    onTapOutside: (_) => FocusScope.of(context).unfocus(),
+                    onChanged: (value) async {
+                      final trimmed = value.trim();
+                      if (trimmed.isNotEmpty && trimmed != state.config.videoBitrate) {
+                        await controller.updateConfig(state.config.copyWith(videoBitrate: trimmed));
+                      }
+                    },
                     onFieldSubmitted: (value) async {
                       if (value.trim().isNotEmpty) {
-                        await controller.updateConfig(cfg.copyWith(videoBitrate: value.trim()));
+                        await controller.updateConfig(state.config.copyWith(videoBitrate: value.trim()));
                       }
                     },
                   ),
@@ -315,9 +329,16 @@ class SetupScreen extends ConsumerWidget {
                   child: TextFormField(
                     initialValue: cfg.audioBitrate,
                     decoration: const InputDecoration(labelText: 'Audio bitrate', border: OutlineInputBorder()),
+                    onTapOutside: (_) => FocusScope.of(context).unfocus(),
+                    onChanged: (value) async {
+                      final trimmed = value.trim();
+                      if (trimmed.isNotEmpty && trimmed != state.config.audioBitrate) {
+                        await controller.updateConfig(state.config.copyWith(audioBitrate: trimmed));
+                      }
+                    },
                     onFieldSubmitted: (value) async {
                       if (value.trim().isNotEmpty) {
-                        await controller.updateConfig(cfg.copyWith(audioBitrate: value.trim()));
+                        await controller.updateConfig(state.config.copyWith(audioBitrate: value.trim()));
                       }
                     },
                   ),
