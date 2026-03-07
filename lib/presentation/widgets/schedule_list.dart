@@ -43,6 +43,31 @@ class ScheduleList extends StatefulWidget {
 
 class _ScheduleListState extends State<ScheduleList> {
   int? _hoveredIndex;
+  int? _lastScrolledSelectedIndex;
+
+  @override
+  void didUpdateWidget(covariant ScheduleList oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final selectedIndex = widget.selectedIndex;
+    if (selectedIndex == null || selectedIndex == _lastScrolledSelectedIndex) {
+      return;
+    }
+    _lastScrolledSelectedIndex = selectedIndex;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final selectedContext = _selectedItemKey.currentContext;
+      if (selectedContext != null) {
+        Scrollable.ensureVisible(
+          selectedContext,
+          duration: const Duration(milliseconds: 120),
+          curve: Curves.easeOut,
+          alignment: 0.2,
+        );
+      }
+    });
+  }
+
+  final GlobalKey _selectedItemKey = GlobalKey();
 
   @override
   Widget build(BuildContext context) {
@@ -60,6 +85,7 @@ class _ScheduleListState extends State<ScheduleList> {
           child: _buildThreadColumn(
             title: widget.nextThreadTitle,
             entries: widget.nextThreadItems,
+            isTerminal: widget.nextThreadItems.isEmpty,
           ),
         ),
       ],
@@ -69,6 +95,7 @@ class _ScheduleListState extends State<ScheduleList> {
   Widget _buildThreadColumn({
     required String title,
     required List<ScheduleListEntry> entries,
+    bool isTerminal = false,
   }) {
     final theme = Theme.of(context);
     return Column(
@@ -88,10 +115,12 @@ class _ScheduleListState extends State<ScheduleList> {
               color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: ListView.builder(
-              itemCount: entries.length,
-              itemBuilder: (context, listIndex) => _buildListItem(entries[listIndex]),
-            ),
+            child: isTerminal
+                ? const SizedBox.shrink()
+                : ListView.builder(
+                    itemCount: entries.length,
+                    itemBuilder: (context, listIndex) => _buildListItem(entries[listIndex]),
+                  ),
           ),
         ),
       ],
@@ -113,6 +142,7 @@ class _ScheduleListState extends State<ScheduleList> {
       onEnter: (_) => setState(() => _hoveredIndex = entry.filteredIndex),
       onExit: (_) => setState(() => _hoveredIndex = null),
       child: AnimatedContainer(
+        key: isSelected ? _selectedItemKey : null,
         duration: const Duration(milliseconds: 120),
         color: rowColor,
         child: ListTile(
