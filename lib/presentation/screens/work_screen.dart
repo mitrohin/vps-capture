@@ -291,11 +291,11 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
           autofocus: true,
           focusNode: _listFocusNode,
           onKeyEvent: (_, event) {
-            if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+            if (event is! KeyDownEvent) {
               return KeyEventResult.ignored;
             }
 
-            final isRepeat = event is KeyRepeatEvent;
+            final isRepeat = event.repeat;
 
             if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
               _moveSelectionUp();
