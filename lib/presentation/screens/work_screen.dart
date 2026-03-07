@@ -36,8 +36,6 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
       if (globalIndex != -1) {
         ref.read(appControllerProvider.notifier).selectIndex(globalIndex);
       }
-    } else {
-      ref.read(appControllerProvider.notifier).selectIndex(-1);
     }
   }
   
@@ -87,56 +85,15 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
   }
 
   List<ScheduleItem> _getFilteredItems(List<ScheduleItem> items) {
-    final activeItems = <ScheduleItem>[];
-    final doneItems = <ScheduleItem>[];
-    final postponedItems = <ScheduleItem>[];
-    final pendingItems = <ScheduleItem>[];
+    final filteredItems = <ScheduleItem>[];
     
     for (var item in items) {
-      final threadMatch = _selectedThreadFilter == null ||
-          item.threadIndex == _selectedThreadFilter;
       final typeMatch = _selectedTypeFilter == null ||
           item.typeIndex == _selectedTypeFilter;
-      
-      if (!threadMatch || !typeMatch) continue;
-      switch (item.status) {
-        case ScheduleItemStatus.active:
-          activeItems.add(item);
-          break;
-        case ScheduleItemStatus.done:
-          doneItems.add(item);
-          break;
-        case ScheduleItemStatus.postponed:
-          postponedItems.add(item);
-          break;
-        case ScheduleItemStatus.pending:
-          pendingItems.add(item);
-          break;
-      }
+      if (!typeMatch) continue;
+      filteredItems.add(item);
     }
-    doneItems.sort((a, b) {
-      final aTime = a.startedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-      final bTime = b.startedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-      return aTime.compareTo(bTime);
-    });
-    final ScheduleItem? lastDoneItem = doneItems.isNotEmpty ? doneItems.last : null;
-    // 1. Последний выполненный
-    // 2. Отложенные
-    // 3. Активный
-    // 4. Ожидающие
-    final visibleItems = <ScheduleItem>[];
-    // 1. Последний выполненный
-    if (lastDoneItem != null) {
-      visibleItems.add(lastDoneItem);
-    }
-    // 2. Отложенные
-    visibleItems.addAll(postponedItems);
-    // 3. Активный
-    visibleItems.addAll(activeItems);
-    // 4. Ожидающие
-    visibleItems.addAll(pendingItems);
-    
-    return visibleItems;
+    return filteredItems;
   }
 
   int getGlobalIndex(int filteredIndex) {
@@ -150,9 +107,48 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
   }
 
   List<int?> _getVisibleThreadOrder(List<ScheduleItem> items) {
-    final threads = items.map((item) => item.threadIndex).toSet().toList();
-    threads.sort((a, b) => (a ?? -1).compareTo(b ?? -1));
+    final threads = items
+        .where((item) => item.threadIndex != null)
+        .map((item) => item.threadIndex)
+        .toSet()
+        .toList();
+    threads.sort((a, b) => (a ?? 0).compareTo(b ?? 0));
     return threads;
+  }
+
+  bool _isThreadCompleted(List<ScheduleItem> items, int threadIndex) {
+    final threadItems = items.where((item) => item.threadIndex == threadIndex).toList();
+    if (threadItems.isEmpty) return false;
+    return threadItems.every(
+      (item) =>
+          item.status == ScheduleItemStatus.done ||
+          item.status == ScheduleItemStatus.postponed,
+    );
+  }
+
+  int? _nextThreadByNumber(List<int> threadOrder, int currentThread) {
+    final nextThread = currentThread + 1;
+    return threadOrder.contains(nextThread) ? nextThread : null;
+  }
+
+  int? _resolveCurrentThread(List<ScheduleItem> filteredItems) {
+    final threadOrder = _getVisibleThreadOrder(filteredItems).whereType<int>().toList();
+    if (threadOrder.isEmpty) return null;
+
+    var currentThread = _selectedThreadFilter;
+    if (currentThread == null || !threadOrder.contains(currentThread)) {
+      currentThread = threadOrder.first;
+    }
+
+    while (_isThreadCompleted(filteredItems, currentThread!)) {
+      final nextThread = _nextThreadByNumber(threadOrder, currentThread);
+      if (nextThread == null) {
+        break;
+      }
+      currentThread = nextThread;
+    }
+
+    return currentThread;
   }
 
   List<ScheduleListEntry> _buildThreadEntries(
@@ -310,7 +306,8 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
 
     final filteredItems = _getFilteredItems(state.schedule);
     final availableThreads = _getAvailableThreads(state.schedule);
-    final availableTypes = _getAvailableTypes(state.schedule, _selectedThreadFilter);
+    final currentThread = _resolveCurrentThread(filteredItems);
+    final availableTypes = _getAvailableTypes(state.schedule, currentThread);
     final selectedFilteredIndex = (state.selectedIndex != null &&
             state.selectedIndex! >= 0 &&
             state.selectedIndex! < state.schedule.length)
@@ -324,12 +321,17 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
             selectedGlobalIndex < state.schedule.length)
         ? state.schedule[selectedGlobalIndex]
         : null;
-    final threadOrder = _getVisibleThreadOrder(filteredItems);
-    final currentThread = selectedItem?.threadIndex ?? (threadOrder.isNotEmpty ? threadOrder.first : null);
-    final nextThreadCandidates = threadOrder.where((thread) => thread != currentThread).toList();
-    final nextThread = nextThreadCandidates.isNotEmpty ? nextThreadCandidates.first : null;
+    final threadOrder = _getVisibleThreadOrder(filteredItems).whereType<int>().toList(growable: false);
+    final nextThread = currentThread == null ? null : _nextThreadByNumber(threadOrder, currentThread);
     final currentThreadItems = _buildThreadEntries(filteredItems, currentThread);
     final nextThreadItems = _buildThreadEntries(filteredItems, nextThread);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _selectedThreadFilter == currentThread) return;
+      setState(() {
+        _selectedThreadFilter = currentThread;
+      });
+    });
 
     return Focus(
           autofocus: true,
@@ -518,30 +520,18 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
                                 child: DropdownButtonHideUnderline(
                                   child: DropdownButton(
                                     value: _selectedThreadFilter,
-                                    hint: Padding(
-                                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                                      child: Text(AppLocalizations.tr(lang, 'allThreads')),
-                                    ),
                                     items: [
-                                      DropdownMenuItem(
-                                        value: null,
-                                        child: Padding(
-                                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                                          child: Text(AppLocalizations.tr(lang, 'allThreads')),
-                                        ),
-                                      ),
                                       ...availableThreads.map((thread) => DropdownMenuItem(
                                         value: thread,
                                         child: Padding(
                                           padding: const EdgeInsets.symmetric(horizontal: 12),
-                                          child: Text('$thread'),
+                                          child: Text('ПОТОК ${thread + 1}'),
                                         ),
                                       )),
                                     ],
                                     onChanged: (value) {
                                       setState(() {
                                         _selectedThreadFilter = value;
-                                        _selectedTypeFilter = null;
                                       });
                                       _updateSelectedIndexAfterFilterChange();
                                     },
@@ -587,12 +577,11 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
                                   ),
                                 ),
                               ),
-                              if (_selectedThreadFilter != null || _selectedTypeFilter != null)
+                              if (_selectedTypeFilter != null)
                                 IconButton(
                                   icon: const Icon(Icons.clear),
                                   onPressed: () {
                                     setState(() {
-                                      _selectedThreadFilter = null;
                                       _selectedTypeFilter = null;
                                     });
                                     _updateSelectedIndexAfterFilterChange();
@@ -686,6 +675,12 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
                               onSelect: (filteredIndex) {
                                 final globalIndex = getGlobalIndex(filteredIndex);
                                 if (globalIndex != -1) {
+                                  final tappedItem = filteredItems[filteredIndex];
+                                  if (tappedItem.threadIndex == nextThread && nextThread != null) {
+                                    setState(() {
+                                      _selectedThreadFilter = nextThread;
+                                    });
+                                  }
                                   controller.selectIndex(globalIndex);
                                 }
                               },
@@ -697,8 +692,12 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
                               },
                               isRecordingMarked: state.isRecordingMarked,
                               languageCode: lang,
-                              currentThreadTitle: AppLocalizations.tr(lang, 'currentThread'),
-                              nextThreadTitle: AppLocalizations.tr(lang, 'nextThread'),
+                              currentThreadTitle: currentThread == null
+                                  ? AppLocalizations.tr(lang, 'currentThread')
+                                  : 'ПОТОК ${currentThread + 1}',
+                              nextThreadTitle: nextThread == null
+                                  ? 'КОНЕЦ'
+                                  : 'ПОТОК ${nextThread + 1}',
                             ),
                           ),
 
