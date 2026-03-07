@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show HardwareKeyboard, KeyDownEvent, LogicalKeyboardKey;
+import 'package:flutter/services.dart' show HardwareKeyboard, KeyDownEvent, KeyUpEvent, LogicalKeyboardKey;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'dart:async';
 
@@ -26,6 +26,7 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
   final GlobalKey<GifTitresState> _gifTitresKey = GlobalKey<GifTitresState>();
   final TextEditingController _timeController = TextEditingController();
   final FocusNode _listFocusNode = FocusNode(debugLabel: 'participants_list_focus');
+  bool _ctrlAltPostponeTriggered = false;
 
   void _updateSelectedIndexAfterFilterChange() {
     final state = ref.read(appControllerProvider);
@@ -291,11 +292,17 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
           autofocus: true,
           focusNode: _listFocusNode,
           onKeyEvent: (_, event) {
-            if (event is! KeyDownEvent && !event.repeat) {
-              return KeyEventResult.ignored;
+            final isModifierRelease = event is KeyUpEvent &&
+                (event.logicalKey == LogicalKeyboardKey.altLeft ||
+                    event.logicalKey == LogicalKeyboardKey.controlLeft ||
+                    event.logicalKey == LogicalKeyboardKey.controlRight);
+            if (isModifierRelease) {
+              _ctrlAltPostponeTriggered = false;
             }
 
-            final isRepeat = event.repeat;
+            if (event is! KeyDownEvent) {
+              return KeyEventResult.ignored;
+            }
 
             if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
               _moveSelectionUp();
@@ -315,13 +322,18 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
                 keyboard.isMetaPressed ||
                 keyboard.isShiftPressed;
 
-            if (!isRepeat &&
-                isCtrlAltChord &&
+            if (isCtrlAltChord &&
+                !_ctrlAltPostponeTriggered &&
                 (event.logicalKey == LogicalKeyboardKey.altLeft ||
                     event.logicalKey == LogicalKeyboardKey.controlLeft ||
                     event.logicalKey == LogicalKeyboardKey.controlRight)) {
+              _ctrlAltPostponeTriggered = true;
               unawaited(controller.postpone());
               return KeyEventResult.handled;
+            }
+
+            if (!isCtrlAltChord) {
+              _ctrlAltPostponeTriggered = false;
             }
 
             if (event.logicalKey == LogicalKeyboardKey.space && !modifierPressed) {
