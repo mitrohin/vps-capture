@@ -124,8 +124,7 @@ class _ScheduleListState extends State<ScheduleList> {
           ),
         ),
         const SizedBox(height: 8),
-        SizedBox(
-          height: 420,
+        Expanded(
           child: DecoratedBox(
             decoration: BoxDecoration(
               color: const Color(0xFF1C1C1E),
