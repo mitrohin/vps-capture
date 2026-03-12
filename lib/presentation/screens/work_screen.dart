@@ -167,6 +167,42 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
     return entries;
   }
 
+
+
+  List<ScheduleListEntry> _buildEntriesFromItems(List<ScheduleItem> items) {
+    final entries = <ScheduleListEntry>[];
+    for (var index = 0; index < items.length; index++) {
+      entries.add(ScheduleListEntry(item: items[index], filteredIndex: index));
+    }
+    return entries;
+  }
+
+  Widget _controlButton({
+    required String label,
+    required VoidCallback? onPressed,
+    bool isPrimary = false,
+    bool isDanger = false,
+  }) {
+    return SizedBox(
+      width: double.infinity,
+      child: FilledButton(
+        onPressed: onPressed,
+        style: FilledButton.styleFrom(
+          backgroundColor: isDanger
+              ? const Color(0xFF8B0000)
+              : isPrimary
+                  ? const Color(0xFF006400)
+                  : const Color(0xFF2E2F33),
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          textStyle: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+        child: Text(label),
+      ),
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -404,6 +440,8 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
           },
           child: Scaffold(
             appBar: AppBar(
+              backgroundColor: Colors.black,
+              foregroundColor: Colors.white,
               title: Row(
                 children: [
                   Text(AppLocalizations.tr(lang, 'workTitle')),
@@ -436,16 +474,6 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
                   icon: const Icon(Icons.upload_file),
                 ),
                 IconButton(
-                  tooltip: AppLocalizations.tr(lang, 'addParticipant'),
-                  onPressed: () => _showAddParticipantDialog(lang),
-                  icon: const Icon(Icons.person_add),
-                ),
-                IconButton(
-                  tooltip: state.isPreviewRunning ? AppLocalizations.tr(lang, 'stopPreview') : AppLocalizations.tr(lang, 'startPreview'),
-                  onPressed: controller.togglePreview,
-                  icon: Icon(state.isPreviewRunning ? Icons.visibility_off : Icons.visibility),
-                ),
-                IconButton(
                   tooltip: AppLocalizations.tr(lang, 'backToSetup'),
                   onPressed: controller.backToSetup,
                   icon: const Icon(Icons.settings),
@@ -453,260 +481,224 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
               ],
             ),
             body: Column(
-                children: [
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: Column(
-                        children: [
-                          if (state.isScheduleInputVisible) ...[
-                            TextField(
-                              controller: _scheduleInputController,
-                              minLines: 3,
-                              maxLines: 5,
-                              decoration: InputDecoration(
-                                border: const OutlineInputBorder(),
-                                labelText: AppLocalizations.tr(lang, 'scheduleEditorLabel'),
-                                hintText: AppLocalizations.tr(lang, 'scheduleEditorHint'),
+              children: [
+                Expanded(
+                  child: Container(
+                    color: Colors.black,
+                    padding: const EdgeInsets.all(8),
+                    child: Column(
+                      children: [
+                        Row(
+                          children: [
+                            SizedBox(
+                              width: 140,
+                              child: TextFormField(
+                                controller: _timeController,
+                                decoration: InputDecoration(
+                                  labelText: AppLocalizations.tr(lang, 'labelTimerGifs'),
+                                  border: const OutlineInputBorder(),
+                                  hintText: AppLocalizations.tr(lang, 'hintTimerGifs'),
+                                  suffixText: AppLocalizations.tr(lang, 'suffixTimerGifs'),
+                                  isDense: true,
+                                ),
+                                keyboardType: TextInputType.number,
+                                onChanged: (value) {
+                                  setState(() {
+                                    delayTime = int.tryParse(value) ?? 3;
+                                  });
+                                },
                               ),
                             ),
-                            const SizedBox(height: 8),
-                          ],
-                          Row(
-                            children: [
-                              if (state.isScheduleInputVisible)
-                                Expanded(
-                                  child: OutlinedButton.icon(
-                                    onPressed: () => controller.applySchedule(_scheduleInputController.text),
-                                    icon: const Icon(Icons.playlist_add_check),
-                                    label: Text(AppLocalizations.tr(lang, 'applySchedule')),
-                                  ),
-                                )
-                              else
-                                Expanded(
-                                  child: OutlinedButton.icon(
-                                    onPressed: () => controller.setScheduleInputVisibility(true),
-                                    icon: const Icon(Icons.edit_note),
-                                    label: Text(AppLocalizations.tr(lang, 'loadSchedule')),
-                                  ),
-                                ),
-                              const SizedBox(width: 8),
-                              IntrinsicWidth(
-                                child: TextFormField(
-                                  controller: _timeController,
-                                  decoration: InputDecoration(
-                                    labelText: AppLocalizations.tr(lang, 'labelTimerGifs'),
-                                    border: const OutlineInputBorder(),
-                                    hintText: AppLocalizations.tr(lang, 'hintTimerGifs'),
-                                    suffixText: AppLocalizations.tr(lang, 'suffixTimerGifs'),
-                                    isDense: true,
-                                  ),
-                                  keyboardType: TextInputType.number,
+                            const SizedBox(width: 8),
+                            Container(
+                              width: 140,
+                              padding: const EdgeInsets.symmetric(horizontal: 8),
+                              decoration: BoxDecoration(
+                                border: Border.all(color: Colors.grey.shade700),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: DropdownButtonHideUnderline(
+                                child: DropdownButton<String>(
+                                  value: state.config.selectedGif,
+                                  dropdownColor: const Color(0xFF1C1C1E),
+                                  style: const TextStyle(color: Colors.white),
+                                  items: const [
+                                    DropdownMenuItem(value: 'blue', child: Text('blue')),
+                                    DropdownMenuItem(value: 'red', child: Text('red')),
+                                    DropdownMenuItem(value: 'fitness', child: Text('fitness')),
+                                    DropdownMenuItem(value: 'lenta', child: Text('lenta')),
+                                  ],
                                   onChanged: (value) {
-                                    setState(() {
-                                      delayTime = int.tryParse(value) ?? 3;
-                                    });
+                                    if (value != null) {
+                                      controller.setSelectedGif(value);
+                                    }
                                   },
                                 ),
                               ),
-                              const SizedBox(width: 8),
-                              Container(
-                                width: 150,
-                                decoration: BoxDecoration(
-                                  border: Border.all(color: Colors.grey.shade300),
-                                  borderRadius: BorderRadius.circular(4),
+                            ),
+                            const SizedBox(width: 8),
+                            SizedBox(
+                              width: 150,
+                              child: DropdownButtonFormField<int>(
+                                value: _selectedThreadFilter,
+                                dropdownColor: const Color(0xFF1C1C1E),
+                                style: const TextStyle(color: Colors.white),
+                                decoration: const InputDecoration(
+                                  labelText: 'Поток',
+                                  border: OutlineInputBorder(),
+                                  isDense: true,
                                 ),
-                                child: DropdownButtonHideUnderline(
-                                  child: DropdownButton(
-                                    value: _selectedThreadFilter,
-                                    items: [
-                                      ...availableThreads.map((thread) => DropdownMenuItem(
-                                        value: thread,
-                                        child: Padding(
-                                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                                items: availableThreads
+                                    .map((thread) => DropdownMenuItem(
+                                          value: thread,
                                           child: Text('ПОТОК ${thread + 1}'),
-                                        ),
-                                      )),
-                                    ],
-                                    onChanged: (value) {
-                                      setState(() {
-                                        _selectedThreadFilter = value;
-                                      });
-                                      _updateSelectedIndexAfterFilterChange();
-                                    },
-                                  ),
-                                ),
+                                        ))
+                                    .toList(),
+                                onChanged: (value) {
+                                  setState(() {
+                                    _selectedThreadFilter = value;
+                                  });
+                                  _updateSelectedIndexAfterFilterChange();
+                                },
                               ),
-                              const SizedBox(width: 8),
-                              Container(
-                                width: 150,
-                                decoration: BoxDecoration(
-                                  border: Border.all(color: Colors.grey.shade300),
-                                  borderRadius: BorderRadius.circular(4),
+                            ),
+                            const SizedBox(width: 8),
+                            SizedBox(
+                              width: 120,
+                              child: DropdownButtonFormField<int?>(
+                                value: _selectedTypeFilter,
+                                dropdownColor: const Color(0xFF1C1C1E),
+                                style: const TextStyle(color: Colors.white),
+                                decoration: const InputDecoration(
+                                  labelText: 'Вид',
+                                  border: OutlineInputBorder(),
+                                  isDense: true,
                                 ),
-                                child: DropdownButtonHideUnderline(
-                                  child: DropdownButton(
-                                    value: _selectedTypeFilter,
-                                    hint: Padding(
-                                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                                      child: Text(AppLocalizations.tr(lang, 'allTypes')),
+                                items: [
+                                  DropdownMenuItem(value: null, child: Text(AppLocalizations.tr(lang, 'allTypes'))),
+                                  ...availableTypes.map((type) => DropdownMenuItem(value: type, child: Text('$type'))),
+                                ],
+                                onChanged: (value) {
+                                  setState(() {
+                                    _selectedTypeFilter = value;
+                                  });
+                                  _updateSelectedIndexAfterFilterChange();
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        Expanded(
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              SizedBox(
+                                width: 160,
+                                child: Column(
+                                  children: [
+                                    _controlButton(
+                                      label: state.isRecordingMarked
+                                          ? AppLocalizations.tr(lang, 'startStopButtonStop')
+                                          : AppLocalizations.tr(lang, 'startStopButtonStart'),
+                                      onPressed: selectedGlobalIndex == null && !state.isRecordingMarked
+                                          ? null
+                                          : () {
+                                              if (state.isRecordingMarked) {
+                                                controller.stopMark();
+                                              } else {
+                                                _handleStartWithGif(selectedGlobalIndex!);
+                                              }
+                                            },
+                                      isPrimary: true,
+                                      isDanger: state.isRecordingMarked,
                                     ),
-                                    items: [
-                                      DropdownMenuItem(
-                                        value: null,
-                                        child: Padding(
-                                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                                          child: Text(AppLocalizations.tr(lang, 'allTypes')),
+                                    const SizedBox(height: 8),
+                                    _controlButton(
+                                      label: AppLocalizations.tr(lang, 'postponeEntry'),
+                                      onPressed: (selectedGlobalIndex != null &&
+                                              selectedItem != null &&
+                                              selectedItem.status != ScheduleItemStatus.postponed)
+                                          ? () => controller.postpone(selectedGlobalIndex)
+                                          : null,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: ScheduleList(
+                                  currentThreadItems: currentThreadItems,
+                                  nextThreadItems: nextThreadItems,
+                                  postponedItems: _buildEntriesFromItems(
+                                    filteredItems.where((item) => item.status == ScheduleItemStatus.postponed).toList(),
+                                  ),
+                                  selectedIndex: selectedFilteredIndex,
+                                  onSelect: (filteredIndex) {
+                                    final globalIndex = getGlobalIndex(filteredIndex);
+                                    if (globalIndex != -1) {
+                                      controller.selectIndex(globalIndex);
+                                    }
+                                  },
+                                  onDelete: (filteredIndex) {
+                                    final globalIndex = getGlobalIndex(filteredIndex);
+                                    if (globalIndex != -1) {
+                                      controller.deleteItem(globalIndex);
+                                    }
+                                  },
+                                  isRecordingMarked: state.isRecordingMarked,
+                                  languageCode: lang,
+                                  currentThreadTitle: 'ТЕКУЩИЙ ПОТОК',
+                                  nextThreadTitle: 'СЛЕДУЮЩИЙ ПОТОК',
+                                  postponedTitle: 'ОТЛОЖЕННЫЕ',
+                                  middleControls: SizedBox(
+                                    width: 160,
+                                    child: Column(
+                                      children: [
+                                        _controlButton(
+                                          label: state.isRecordingMarked
+                                              ? AppLocalizations.tr(lang, 'startStopButtonStop')
+                                              : AppLocalizations.tr(lang, 'startStopButtonStart'),
+                                          onPressed: selectedGlobalIndex == null && !state.isRecordingMarked
+                                              ? null
+                                              : () {
+                                                  if (state.isRecordingMarked) {
+                                                    controller.stopMark();
+                                                  } else {
+                                                    _handleStartWithGif(selectedGlobalIndex!);
+                                                  }
+                                                },
+                                          isPrimary: true,
+                                          isDanger: state.isRecordingMarked,
                                         ),
-                                      ),
-                                      ...availableTypes.map((type) => DropdownMenuItem(
-                                        value: type,
-                                        child: Padding(
-                                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                                          child: Text('$type'),
+                                        const SizedBox(height: 8),
+                                        _controlButton(
+                                          label: AppLocalizations.tr(lang, 'restoreEntry'),
+                                          onPressed: (selectedGlobalIndex != null &&
+                                                  selectedItem != null &&
+                                                  selectedItem.status == ScheduleItemStatus.postponed)
+                                              ? () => controller.restoreItem(selectedGlobalIndex)
+                                              : null,
                                         ),
-                                      )),
-                                    ],
-                                    onChanged: (value) {
-                                      setState(() {
-                                        _selectedTypeFilter = value;
-                                      });
-                                      _updateSelectedIndexAfterFilterChange();
-                                    },
+                                        const SizedBox(height: 8),
+                                        _controlButton(
+                                          label: 'ОЧИСТИТЬ',
+                                          onPressed: () => controller.restoreAllPostponed(),
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
                               ),
-                              if (_selectedTypeFilter != null)
-                                IconButton(
-                                  icon: const Icon(Icons.clear),
-                                  onPressed: () {
-                                    setState(() {
-                                      _selectedTypeFilter = null;
-                                    });
-                                    _updateSelectedIndexAfterFilterChange();
-                                  },
-                                  tooltip: AppLocalizations.tr(lang, 'resetFilters'),
-                                ),
                             ],
                           ),
-                          const SizedBox(height: 12),
-                          Align(
-                            alignment: Alignment.centerLeft,
-                            child: Row(
-                              children: [
-                                  Text(AppLocalizations.tr(lang, 'displayedCounter'),
-                                    style: TextStyle(
-                                      color: Colors.grey.shade600,
-                                      fontSize: 12,
-                                    )),
-                                  Text('${filteredItems.length}/${state.schedule.length}',
-                                    style: TextStyle(
-                                      color: Colors.grey.shade600,
-                                      fontSize: 12))
-                              ]
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withValues(alpha: 0.04),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Wrap(
-                              alignment: WrapAlignment.center,
-                              crossAxisAlignment: WrapCrossAlignment.center,
-                              spacing: 10,
-                              runSpacing: 8,
-                              children: [
-                                FilledButton.tonal(
-                                  onPressed: (selectedGlobalIndex != null &&
-                                          !state.isRecordingMarked)
-                                      ? () => _handleStartWithGif(selectedGlobalIndex!)
-                                      : null,
-                                  style: FilledButton.styleFrom(
-                                    padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 18),
-                                    textStyle: const TextStyle(
-                                      fontSize: 28,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                  child: Text(AppLocalizations.tr(lang, 'startStopButtonStart')),
-                                ),
-                                FilledButton.tonal(
-                                  onPressed: state.isRecordingMarked ? controller.stopMark : null,
-                                  style: FilledButton.styleFrom(
-                                    padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 18),
-                                    textStyle: const TextStyle(
-                                      fontSize: 28,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                  child: Text(AppLocalizations.tr(lang, 'startStopButtonStop')),
-                                ),
-                                TextButton(
-                                  onPressed: (selectedGlobalIndex != null &&
-                                          selectedItem != null &&
-                                          selectedItem.status != ScheduleItemStatus.postponed)
-                                      ? () => controller.postpone(selectedGlobalIndex!)
-                                      : null,
-                                  child: Text(AppLocalizations.tr(lang, 'postponeEntry')),
-                                ),
-                                TextButton(
-                                  onPressed: (selectedGlobalIndex != null &&
-                                          selectedItem != null &&
-                                          (selectedItem.status == ScheduleItemStatus.postponed ||
-                                              selectedItem.status == ScheduleItemStatus.done))
-                                      ? () => controller.restoreItem(selectedGlobalIndex!)
-                                      : null,
-                                  child: Text(AppLocalizations.tr(lang, 'restoreEntry')),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          Expanded(
-                            child: ScheduleList(
-                              currentThreadItems: currentThreadItems,
-                              nextThreadItems: nextThreadItems,
-                              selectedIndex: selectedFilteredIndex,
-                              onSelect: (filteredIndex) {
-                                final globalIndex = getGlobalIndex(filteredIndex);
-                                if (globalIndex != -1) {
-                                  final tappedItem = filteredItems[filteredIndex];
-                                  if (tappedItem.threadIndex == nextThread && nextThread != null) {
-                                    setState(() {
-                                      _selectedThreadFilter = nextThread;
-                                    });
-                                  }
-                                  controller.selectIndex(globalIndex);
-                                }
-                              },
-                              onDelete: (filteredIndex) {
-                                final globalIndex = getGlobalIndex(filteredIndex);
-                                if (globalIndex != -1) {
-                                  controller.deleteItem(globalIndex);
-                                }
-                              },
-                              isRecordingMarked: state.isRecordingMarked,
-                              languageCode: lang,
-                              currentThreadTitle: currentThread == null
-                                  ? AppLocalizations.tr(lang, 'currentThread')
-                                  : 'ПОТОК ${currentThread + 1}',
-                              nextThreadTitle: nextThread == null
-                                  ? 'КОНЕЦ'
-                                  : 'ПОТОК ${nextThread + 1}',
-                            ),
-                          ),
-
-                        ]
-                      )
+                        ),
+                      ],
+                    ),
                   ),
-                  ),
-                  GifTitres(key: _gifTitresKey, lang: lang, delayTime: delayTime, selectedGif: state.config.selectedGif!,),
-                ],
-              ),
+                ),
+                GifTitres(key: _gifTitresKey, lang: lang, delayTime: delayTime, selectedGif: state.config.selectedGif!,),
+              ],
             ),
           );
   }

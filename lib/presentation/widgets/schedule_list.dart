@@ -18,24 +18,30 @@ class ScheduleList extends StatefulWidget {
     super.key,
     required this.currentThreadItems,
     required this.nextThreadItems,
+    required this.postponedItems,
     required this.selectedIndex,
     required this.onSelect,
     required this.onDelete,
     required this.languageCode,
     required this.currentThreadTitle,
     required this.nextThreadTitle,
+    required this.postponedTitle,
     required this.isRecordingMarked,
+    this.middleControls,
   });
 
   final List<ScheduleListEntry> currentThreadItems;
   final List<ScheduleListEntry> nextThreadItems;
+  final List<ScheduleListEntry> postponedItems;
   final int? selectedIndex;
   final ValueChanged<int> onSelect;
   final ValueChanged<int> onDelete;
   final String languageCode;
   final String currentThreadTitle;
   final String nextThreadTitle;
+  final String postponedTitle;
   final bool isRecordingMarked;
+  final Widget? middleControls;
 
   @override
   State<ScheduleList> createState() => _ScheduleListState();
@@ -72,7 +78,7 @@ class _ScheduleListState extends State<ScheduleList> {
   @override
   Widget build(BuildContext context) {
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Expanded(
           child: _buildThreadColumn(
@@ -80,12 +86,22 @@ class _ScheduleListState extends State<ScheduleList> {
             entries: widget.currentThreadItems,
           ),
         ),
-        const SizedBox(width: 16),
+        const SizedBox(width: 10),
         Expanded(
           child: _buildThreadColumn(
             title: widget.nextThreadTitle,
             entries: widget.nextThreadItems,
-            isTerminal: widget.nextThreadItems.isEmpty,
+          ),
+        ),
+        if (widget.middleControls != null) ...[
+          const SizedBox(width: 10),
+          widget.middleControls!,
+        ],
+        const SizedBox(width: 10),
+        Expanded(
+          child: _buildThreadColumn(
+            title: widget.postponedTitle,
+            entries: widget.postponedItems,
           ),
         ),
       ],
@@ -95,32 +111,31 @@ class _ScheduleListState extends State<ScheduleList> {
   Widget _buildThreadColumn({
     required String title,
     required List<ScheduleListEntry> entries,
-    bool isTerminal = false,
   }) {
-    final theme = Theme.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           title,
-          style: theme.textTheme.headlineMedium?.copyWith(
-            fontWeight: FontWeight.bold,
-            letterSpacing: 0.6,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 22,
+            fontWeight: FontWeight.w600,
           ),
         ),
-        const SizedBox(height: 10),
-        Expanded(
-          child: Container(
+        const SizedBox(height: 8),
+        SizedBox(
+          height: 420,
+          child: DecoratedBox(
             decoration: BoxDecoration(
-              color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
-              borderRadius: BorderRadius.circular(12),
+              color: const Color(0xFF1C1C1E),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFF2A2A2D)),
             ),
-            child: isTerminal
-                ? const SizedBox.shrink()
-                : ListView.builder(
-                    itemCount: entries.length,
-                    itemBuilder: (context, listIndex) => _buildListItem(entries[listIndex]),
-                  ),
+            child: ListView.builder(
+              itemCount: entries.length,
+              itemBuilder: (context, listIndex) => _buildListItem(entries[listIndex]),
+            ),
           ),
         ),
       ],
@@ -128,15 +143,9 @@ class _ScheduleListState extends State<ScheduleList> {
   }
 
   Widget _buildListItem(ScheduleListEntry entry) {
-    final colorScheme = Theme.of(context).colorScheme;
     final isSelected = widget.selectedIndex == entry.filteredIndex;
     final isHovered = _hoveredIndex == entry.filteredIndex;
     final canDelete = !(widget.isRecordingMarked && entry.item.status == ScheduleItemStatus.active);
-    final rowColor = isSelected
-        ? colorScheme.primary
-        : isHovered
-            ? colorScheme.surfaceContainerHighest
-            : Colors.transparent;
 
     return MouseRegion(
       onEnter: (_) => setState(() => _hoveredIndex = entry.filteredIndex),
@@ -144,27 +153,30 @@ class _ScheduleListState extends State<ScheduleList> {
       child: AnimatedContainer(
         key: isSelected ? _selectedItemKey : null,
         duration: const Duration(milliseconds: 120),
-        color: rowColor,
+        color: isSelected
+            ? const Color(0xFF055A0A)
+            : isHovered
+                ? const Color(0xFF2A2A2D)
+                : Colors.transparent,
         child: ListTile(
           dense: true,
+          visualDensity: const VisualDensity(horizontal: -2, vertical: -2),
           onTap: () => widget.onSelect(entry.filteredIndex),
           title: Text(
             entry.item.label,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              fontSize: 28,
-              color: isSelected ? colorScheme.onPrimary : null,
+              fontSize: 16,
+              color: Colors.white,
               decoration: entry.item.status == ScheduleItemStatus.done ? TextDecoration.lineThrough : null,
             ),
           ),
           subtitle: Text(
             _statusText(entry.item.status),
             style: TextStyle(
-              fontSize: 11,
-              color: isSelected
-                  ? colorScheme.onPrimary.withValues(alpha: 0.9)
-                  : colorScheme.onSurface.withValues(alpha: 0.72),
+              fontSize: 10,
+              color: isSelected ? Colors.white70 : Colors.grey,
             ),
           ),
           trailing: isHovered
@@ -173,9 +185,8 @@ class _ScheduleListState extends State<ScheduleList> {
                   onPressed: canDelete ? () => widget.onDelete(entry.filteredIndex) : null,
                   icon: Icon(
                     Icons.close,
-                    color: canDelete
-                        ? (isSelected ? colorScheme.onPrimary : Colors.red)
-                        : (isSelected ? colorScheme.onPrimary.withValues(alpha: 0.4) : null),
+                    color: canDelete ? Colors.red : Colors.grey,
+                    size: 18,
                   ),
                 )
               : null,
