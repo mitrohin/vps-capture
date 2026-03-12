@@ -700,6 +700,7 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
                 GifTitres(key: _gifTitresKey, lang: lang, delayTime: delayTime, selectedGif: state.config.selectedGif!,),
               ],
             ),
-          );
+          ),
+        );
   }
 }
