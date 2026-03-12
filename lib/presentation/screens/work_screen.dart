@@ -160,7 +160,7 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
     final entries = <ScheduleListEntry>[];
     for (var index = 0; index < items.length; index++) {
       final item = items[index];
-      if (item.threadIndex == threadIndex) {
+      if (item.threadIndex == threadIndex && item.status != ScheduleItemStatus.postponed) {
         entries.add(ScheduleListEntry(item: item, filteredIndex: index));
       }
     }
@@ -169,10 +169,17 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
 
 
 
-  List<ScheduleListEntry> _buildEntriesFromItems(List<ScheduleItem> items) {
+  List<ScheduleListEntry> _buildEntriesFromItems(
+    List<ScheduleItem> items,
+    bool Function(ScheduleItem item) predicate,
+  ) {
     final entries = <ScheduleListEntry>[];
     for (var index = 0; index < items.length; index++) {
-      entries.add(ScheduleListEntry(item: items[index], filteredIndex: index));
+      final item = items[index];
+      if (!predicate(item)) {
+        continue;
+      }
+      entries.add(ScheduleListEntry(item: item, filteredIndex: index));
     }
     return entries;
   }
@@ -631,7 +638,8 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
                                   currentThreadItems: currentThreadItems,
                                   nextThreadItems: nextThreadItems,
                                   postponedItems: _buildEntriesFromItems(
-                                    filteredItems.where((item) => item.status == ScheduleItemStatus.postponed).toList(),
+                                    filteredItems,
+                                    (item) => item.status == ScheduleItemStatus.postponed,
                                   ),
                                   selectedIndex: selectedFilteredIndex,
                                   onSelect: (filteredIndex) {
