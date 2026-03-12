@@ -25,16 +25,14 @@ class SetupScreen extends ConsumerWidget {
       CaptureSourceKind.deckLink,
     ];
 
-    final List<String> gifs = [
-      'blue',
-      'red',
-      'fitness',
-      'lenta',
-    ];
-    String selectedGif = gifs.first;
     final codecOptions = Platform.isMacOS
         ? const ['h264_videotoolbox', 'hevc_videotoolbox', 'libx264']
         : const ['libx264', 'h264_nvenc', 'hevc_nvenc', 'h264_qsv', 'hevc_qsv', 'h264_amf', 'hevc_amf'];
+
+    final videoDevices = state.devices.where((d) => d.type == DeviceType.video).toList();
+    final audioDevices = state.devices.where((d) => d.type == DeviceType.audio).toList();
+    final selectedVideoValue = _resolveSelectedDevice(cfg.selectedVideoDevice, videoDevices);
+    final selectedAudioValue = _resolveSelectedDevice(cfg.selectedAudioDevice, audioDevices);
 
     return Scaffold(
       appBar: AppBar(
@@ -100,14 +98,6 @@ class SetupScreen extends ConsumerWidget {
                 },
                 child: Text(AppLocalizations.tr(lang, 'pickFfplay')),
               ),
-              OutlinedButton(
-                onPressed: state.config.ffplayPath == null ? null : controller.togglePreview,
-                child: Text(state.isPreviewRunning ? AppLocalizations.tr(lang, 'stopPreview') : AppLocalizations.tr(lang, 'startPreview')),
-              ),
-              OutlinedButton(
-                onPressed: state.config.ffmpegPath == null ? null : controller.toggleTestRecording,
-                child: Text(state.isTestRecording ? AppLocalizations.tr(lang, 'stopTestRecording') : AppLocalizations.tr(lang, 'startTestRecording')),
-              ),
             ]),
             const SizedBox(height: 12),
             Text('ffmpeg: ${cfg.ffmpegPath ?? AppLocalizations.tr(lang, 'notSelected')}'),
@@ -140,27 +130,6 @@ class SetupScreen extends ConsumerWidget {
                     },
                   ),
                 ),
-                const SizedBox(width: 12),
-                IntrinsicWidth(
-                  child: DropdownButtonFormField<String>(
-                    value: selectedGif,
-                    decoration: InputDecoration(
-                      labelText: AppLocalizations.tr(lang, 'nameGifsTitre'),
-                      border: const OutlineInputBorder(),
-                    ),
-                    items: gifs.map((String key) {
-                      return DropdownMenuItem<String>(
-                        value: key,
-                        child: Text(key),
-                      );
-                    }).toList(),
-                    onChanged: (String? newValue) async {
-                      if (newValue != null) {
-                        await controller.updateConfig(cfg.copyWith(selectedGif: newValue));
-                      }
-                    },
-                  ),
-                ),
               ]
             ),
             const SizedBox(height: 8),
@@ -170,61 +139,58 @@ class SetupScreen extends ConsumerWidget {
                 child: Text(AppLocalizations.tr(lang, 'scanDevices')),
               ),
               const SizedBox(width: 12),
-              if (state.devices.isNotEmpty)
-                Expanded(
-                  child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(AppLocalizations.tr(lang, 'detectedVideoDevices')),
-                                const SizedBox(height: 4),
-                                DropdownButton<CaptureDevice>(
-                                value: cfg.selectedVideoDevice,
-                                isExpanded: true,
-                                hint: Text(AppLocalizations.tr(lang, 'selectedVideoDevices')),
-                                items: state.devices
-                                    .where((d) => d.type == DeviceType.video)
-                                    .map((d) => DropdownMenuItem(value: d, child: Text(d.displayLabel)))
-                                    .toList(),
-                                onChanged: (value) async {
-                                  if (value != null) {
-                                    await controller.updateConfig(cfg.copyWith(selectedVideoDevice: value));
-                                  }
-                                },
-                              ),
-                              ],
-                          ), 
+              Expanded(
+                child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(AppLocalizations.tr(lang, 'detectedVideoDevices')),
+                              const SizedBox(height: 4),
+                              DropdownButton<CaptureDevice>(
+                              value: selectedVideoValue,
+                              isExpanded: true,
+                              hint: Text(AppLocalizations.tr(lang, 'selectedVideoDevices')),
+                              items: videoDevices
+                                  .map((d) => DropdownMenuItem(value: d, child: Text(d.displayLabel)))
+                                  .toList(),
+                              onChanged: (value) async {
+                                if (value != null) {
+                                  await controller.updateConfig(cfg.copyWith(selectedVideoDevice: value));
+                                }
+                              },
+                            ),
+                            ],
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                              child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                      Text(AppLocalizations.tr(lang, 'detectedAudioDevices')),
-                                      const SizedBox(height: 4),
-                                      DropdownButton<CaptureDevice>(
-                                      value: cfg.selectedAudioDevice,
-                                      isExpanded: true,
-                                      hint: Text(AppLocalizations.tr(lang, 'selectedAudioDevices')),
-                                      items: state.devices
-                                          .where((d) => d.type == DeviceType.audio)
-                                          .map((d) => DropdownMenuItem(value: d, child: Text(d.displayLabel)))
-                                          .toList(),
-                                      onChanged: (value) async {
-                                        if (value != null) {
-                                          await controller.updateConfig(cfg.copyWith(selectedAudioDevice: value));
-                                        }
-                                      },
-                                    ),
-                                  ],
-                              ),
-                        ),
-                      ]
-                  ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                            child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                    Text(AppLocalizations.tr(lang, 'detectedAudioDevices')),
+                                    const SizedBox(height: 4),
+                                    DropdownButton<CaptureDevice>(
+                                    value: selectedAudioValue,
+                                    isExpanded: true,
+                                    hint: Text(AppLocalizations.tr(lang, 'selectedAudioDevices')),
+                                    items: audioDevices
+                                        .map((d) => DropdownMenuItem(value: d, child: Text(d.displayLabel)))
+                                        .toList(),
+                                    onChanged: (value) async {
+                                      if (value != null) {
+                                        await controller.updateConfig(cfg.copyWith(selectedAudioDevice: value));
+                                      }
+                                    },
+                                  ),
+                                ],
+                            ),
+                      ),
+                    ]
                 ),
+              ),
             ]),
             const SizedBox(height: 8),
             Row(children: [
@@ -381,4 +347,21 @@ class SetupScreen extends ConsumerWidget {
       ),
     );
   }
+}
+
+CaptureDevice? _resolveSelectedDevice(
+  CaptureDevice? selectedDevice,
+  List<CaptureDevice> availableDevices,
+) {
+  if (selectedDevice == null) {
+    return null;
+  }
+
+  for (final device in availableDevices) {
+    if (device.id == selectedDevice.id && device.type == selectedDevice.type) {
+      return device;
+    }
+  }
+
+  return null;
 }
