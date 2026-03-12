@@ -481,6 +481,11 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
                   icon: const Icon(Icons.upload_file),
                 ),
                 IconButton(
+                  tooltip: AppLocalizations.tr(lang, 'addParticipant'),
+                  onPressed: () => _showAddParticipantDialog(lang),
+                  icon: const Icon(Icons.person_add),
+                ),
+                IconButton(
                   tooltip: AppLocalizations.tr(lang, 'backToSetup'),
                   onPressed: controller.backToSetup,
                   icon: const Icon(Icons.settings),
@@ -495,107 +500,6 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
                     padding: const EdgeInsets.all(8),
                     child: Column(
                       children: [
-                        Row(
-                          children: [
-                            SizedBox(
-                              width: 140,
-                              child: TextFormField(
-                                controller: _timeController,
-                                decoration: InputDecoration(
-                                  labelText: AppLocalizations.tr(lang, 'labelTimerGifs'),
-                                  border: const OutlineInputBorder(),
-                                  hintText: AppLocalizations.tr(lang, 'hintTimerGifs'),
-                                  suffixText: AppLocalizations.tr(lang, 'suffixTimerGifs'),
-                                  isDense: true,
-                                ),
-                                keyboardType: TextInputType.number,
-                                onChanged: (value) {
-                                  setState(() {
-                                    delayTime = int.tryParse(value) ?? 3;
-                                  });
-                                },
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Container(
-                              width: 140,
-                              padding: const EdgeInsets.symmetric(horizontal: 8),
-                              decoration: BoxDecoration(
-                                border: Border.all(color: Colors.grey.shade700),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: DropdownButtonHideUnderline(
-                                child: DropdownButton<String>(
-                                  value: state.config.selectedGif,
-                                  dropdownColor: const Color(0xFF1C1C1E),
-                                  style: const TextStyle(color: Colors.white),
-                                  items: const [
-                                    DropdownMenuItem(value: 'blue', child: Text('blue')),
-                                    DropdownMenuItem(value: 'red', child: Text('red')),
-                                    DropdownMenuItem(value: 'fitness', child: Text('fitness')),
-                                    DropdownMenuItem(value: 'lenta', child: Text('lenta')),
-                                  ],
-                                  onChanged: (value) {
-                                    if (value != null) {
-                                      controller.setSelectedGif(value);
-                                    }
-                                  },
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            SizedBox(
-                              width: 150,
-                              child: DropdownButtonFormField<int>(
-                                value: _selectedThreadFilter,
-                                dropdownColor: const Color(0xFF1C1C1E),
-                                style: const TextStyle(color: Colors.white),
-                                decoration: const InputDecoration(
-                                  labelText: 'Поток',
-                                  border: OutlineInputBorder(),
-                                  isDense: true,
-                                ),
-                                items: availableThreads
-                                    .map((thread) => DropdownMenuItem(
-                                          value: thread,
-                                          child: Text('ПОТОК ${thread + 1}'),
-                                        ))
-                                    .toList(),
-                                onChanged: (value) {
-                                  setState(() {
-                                    _selectedThreadFilter = value;
-                                  });
-                                  _updateSelectedIndexAfterFilterChange();
-                                },
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            SizedBox(
-                              width: 120,
-                              child: DropdownButtonFormField<int?>(
-                                value: _selectedTypeFilter,
-                                dropdownColor: const Color(0xFF1C1C1E),
-                                style: const TextStyle(color: Colors.white),
-                                decoration: const InputDecoration(
-                                  labelText: 'Вид',
-                                  border: OutlineInputBorder(),
-                                  isDense: true,
-                                ),
-                                items: [
-                                  DropdownMenuItem(value: null, child: Text(AppLocalizations.tr(lang, 'allTypes'))),
-                                  ...availableTypes.map((type) => DropdownMenuItem(value: type, child: Text('$type'))),
-                                ],
-                                onChanged: (value) {
-                                  setState(() {
-                                    _selectedTypeFilter = value;
-                                  });
-                                  _updateSelectedIndexAfterFilterChange();
-                                },
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
                         Expanded(
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -628,6 +532,101 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
                                               selectedItem.status != ScheduleItemStatus.postponed)
                                           ? () => controller.postpone(selectedGlobalIndex)
                                           : null,
+                                    ),
+                                    const SizedBox(height: 14),
+                                    SizedBox(
+                                      width: 160,
+                                      child: TextFormField(
+                                        controller: _timeController,
+                                        decoration: InputDecoration(
+                                          labelText: AppLocalizations.tr(lang, 'labelTimerGifs'),
+                                          border: const OutlineInputBorder(),
+                                          hintText: AppLocalizations.tr(lang, 'hintTimerGifs'),
+                                          suffixText: AppLocalizations.tr(lang, 'suffixTimerGifs'),
+                                          isDense: true,
+                                        ),
+                                        keyboardType: TextInputType.number,
+                                        onChanged: (value) {
+                                          setState(() {
+                                            delayTime = int.tryParse(value) ?? 3;
+                                          });
+                                        },
+                                      ),
+                                    ),
+                                    const SizedBox(height: 10),
+                                    SizedBox(
+                                      width: 160,
+                                      child: DropdownButtonFormField<String>(
+                                        value: state.config.selectedGif,
+                                        dropdownColor: const Color(0xFF1C1C1E),
+                                        style: const TextStyle(color: Colors.white),
+                                        decoration: const InputDecoration(
+                                          labelText: 'Титр',
+                                          border: OutlineInputBorder(),
+                                          isDense: true,
+                                        ),
+                                        items: const [
+                                          DropdownMenuItem(value: 'blue', child: Text('blue')),
+                                          DropdownMenuItem(value: 'red', child: Text('red')),
+                                          DropdownMenuItem(value: 'fitness', child: Text('fitness')),
+                                          DropdownMenuItem(value: 'lenta', child: Text('lenta')),
+                                        ],
+                                        onChanged: (value) {
+                                          if (value != null) {
+                                            controller.setSelectedGif(value);
+                                          }
+                                        },
+                                      ),
+                                    ),
+                                    const SizedBox(height: 10),
+                                    SizedBox(
+                                      width: 160,
+                                      child: DropdownButtonFormField<int>(
+                                        value: _selectedThreadFilter,
+                                        dropdownColor: const Color(0xFF1C1C1E),
+                                        style: const TextStyle(color: Colors.white),
+                                        decoration: const InputDecoration(
+                                          labelText: 'Поток',
+                                          border: OutlineInputBorder(),
+                                          isDense: true,
+                                        ),
+                                        items: availableThreads
+                                            .map((thread) => DropdownMenuItem(
+                                                  value: thread,
+                                                  child: Text('ПОТОК ${thread + 1}'),
+                                                ))
+                                            .toList(),
+                                        onChanged: (value) {
+                                          setState(() {
+                                            _selectedThreadFilter = value;
+                                          });
+                                          _updateSelectedIndexAfterFilterChange();
+                                        },
+                                      ),
+                                    ),
+                                    const SizedBox(height: 10),
+                                    SizedBox(
+                                      width: 160,
+                                      child: DropdownButtonFormField<int?>(
+                                        value: _selectedTypeFilter,
+                                        dropdownColor: const Color(0xFF1C1C1E),
+                                        style: const TextStyle(color: Colors.white),
+                                        decoration: const InputDecoration(
+                                          labelText: 'Вид',
+                                          border: OutlineInputBorder(),
+                                          isDense: true,
+                                        ),
+                                        items: [
+                                          DropdownMenuItem(value: null, child: Text(AppLocalizations.tr(lang, 'allTypes'))),
+                                          ...availableTypes.map((type) => DropdownMenuItem(value: type, child: Text('$type'))),
+                                        ],
+                                        onChanged: (value) {
+                                          setState(() {
+                                            _selectedTypeFilter = value;
+                                          });
+                                          _updateSelectedIndexAfterFilterChange();
+                                        },
+                                      ),
                                     ),
                                   ],
                                 ),
