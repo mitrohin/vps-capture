@@ -17,9 +17,12 @@ class GymCaptureApp extends ConsumerWidget {
       debugShowCheckedModeBanner: false,
       title: AppLocalizations.tr(lang, 'appTitle'),
       locale: Locale(lang),
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
-        useMaterial3: true,
+      theme: ThemeData.dark(useMaterial3: true).copyWith(
+        scaffoldBackgroundColor: Colors.black,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: Colors.green,
+          brightness: Brightness.dark,
+        ),
       ),
       home: const RootScreen(),
     );

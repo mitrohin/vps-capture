@@ -491,23 +491,54 @@ class AppController extends StateNotifier<AppState>  {
       return;
     }
 
-    var recordingReset = false;
     await _guard(() async {
       if (state.isRecordingMarked && targetItem.status == ScheduleItemStatus.active) {
         await _capture.stopBuffer();
         state = state.copyWith(isRecordingMarked: false, clearMarkStart: true);
-        recordingReset = true;
       }
 
       final updated = [...state.schedule];
-      final item = updated.removeAt(targetIndex).copyWith(
+      final item = updated[targetIndex].copyWith(
         status: ScheduleItemStatus.postponed,
       );
-      updated.insert(0, item);
-      state = state.copyWith(schedule: updated, selectedIndex: 0);
+      updated[targetIndex] = item;
+      state = state.copyWith(schedule: updated, selectedIndex: targetIndex);
       await _updateScheduleItemInFile(item);
       _appendLog('Marked as POSTPONED: ${item.label}.');
     });
+  }
+
+  Future<void> restoreAllPostponed() async {
+    final postponedIndexes = <int>[];
+    final updated = [...state.schedule];
+    for (var i = 0; i < updated.length; i++) {
+      if (updated[i].status == ScheduleItemStatus.postponed) {
+        postponedIndexes.add(i);
+        updated[i] = updated[i].copyWith(
+          status: ScheduleItemStatus.pending,
+          clearStartedAt: true,
+        );
+      }
+    }
+
+    if (postponedIndexes.isEmpty) {
+      return;
+    }
+
+    final selectedIndex = state.selectedIndex;
+    final nextSelectedIndex = (selectedIndex != null && postponedIndexes.contains(selectedIndex))
+        ? postponedIndexes.first
+        : selectedIndex;
+
+    state = state.copyWith(
+      schedule: updated,
+      selectedIndex: nextSelectedIndex,
+    );
+
+    for (final index in postponedIndexes) {
+      await _updateScheduleItemInFile(updated[index]);
+    }
+    _appendLog('Restored all postponed items: ${postponedIndexes.length}.');
   }
 
   void restoreItem(int index) {
