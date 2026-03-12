@@ -170,6 +170,11 @@ class AppController extends StateNotifier<AppState>  {
   Future<void> setLanguage(String languageCode) async {
     await updateConfig(state.config.copyWith(languageCode: languageCode));
   }
+
+  Future<void> setSelectedGif(String selectedGif) async {
+    await updateConfig(state.config.copyWith(selectedGif: selectedGif));
+  }
+
   Future<void> loadSchedule() async {
     await _guard(() async {
       final res = await FilePicker.platform.pickFiles(type: FileType.custom, allowedExtensions: ['csv', 'txt']);
