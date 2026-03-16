@@ -133,7 +133,13 @@ class _ScheduleListState extends State<ScheduleList> {
             ),
             child: ListView.builder(
               itemCount: entries.length,
-              itemBuilder: (context, listIndex) => _buildListItem(entries[listIndex]),
+              itemBuilder: (context, listIndex) {
+                final entry = entries[listIndex];
+                final showDivider = listIndex > 0 && 
+                    entries[listIndex - 1].item.typeIndex != entry.item.typeIndex;
+                
+                return _buildListItemWithDivider(entry, showDivider);
+              },
             ),
           ),
         ),
@@ -141,57 +147,124 @@ class _ScheduleListState extends State<ScheduleList> {
     );
   }
 
-  Widget _buildListItem(ScheduleListEntry entry) {
+  Widget _buildListItemWithDivider(ScheduleListEntry entry, bool showDivider) {
     final isSelected = widget.selectedIndex == entry.filteredIndex;
     final isHovered = _hoveredIndex == entry.filteredIndex;
     final canDelete = !(widget.isRecordingMarked && entry.item.status == ScheduleItemStatus.active);
-
+    
     return MouseRegion(
       onEnter: (_) => setState(() => _hoveredIndex = entry.filteredIndex),
       onExit: (_) => setState(() => _hoveredIndex = null),
-      child: AnimatedContainer(
+      child: Container(
         key: isSelected ? _selectedItemKey : null,
-        duration: const Duration(milliseconds: 120),
-        color: isSelected
-            ? const Color(0xFF055A0A)
-            : isHovered
-                ? const Color(0xFF2A2A2D)
-                : Colors.transparent,
-        child: ListTile(
-          dense: true,
-          visualDensity: const VisualDensity(horizontal: -2, vertical: -2),
-          onTap: () => widget.onSelect(entry.filteredIndex),
-          title: Text(
-            entry.item.label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: 16,
-              color: Colors.white,
-              decoration: entry.item.status == ScheduleItemStatus.done ? TextDecoration.lineThrough : null,
-            ),
-          ),
-          subtitle: Text(
-            _statusText(entry.item.status),
-            style: TextStyle(
-              fontSize: 10,
-              color: isSelected ? Colors.white70 : Colors.grey,
-            ),
-          ),
-          trailing: isHovered
-              ? IconButton(
-                  tooltip: AppLocalizations.tr(widget.languageCode, 'deleteEntry'),
-                  onPressed: canDelete ? () => widget.onDelete(entry.filteredIndex) : null,
-                  icon: Icon(
-                    Icons.close,
-                    color: canDelete ? Colors.red : Colors.grey,
-                    size: 18,
+        color: _getBackgroundColor(entry, isSelected, isHovered),
+        child: Column(
+          children: [
+            if (showDivider)
+              Container(
+                height: 2,
+                color: const Color(0xFF3A3A3D),
+                margin: const EdgeInsets.symmetric(vertical: 4),
+              ),
+            ListTile(
+              dense: true,
+              visualDensity: const VisualDensity(horizontal: -2, vertical: -2),
+              onTap: () => widget.onSelect(entry.filteredIndex),
+              title: Row(
+                children: [
+                  if (entry.item.typeIndex != null)
+                    Container(
+                      margin: const EdgeInsets.only(right: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: _getTypeColor(entry.item.typeIndex!).withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(
+                          color: _getTypeColor(entry.item.typeIndex!),
+                          width: 1,
+                        ),
+                      ),
+                      child: Text(
+                        '${entry.item.typeIndex}',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: _getTypeColor(entry.item.typeIndex!),
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  Expanded(
+                    child: Text(
+                      entry.item.label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Colors.white,
+                        decoration: entry.item.status == ScheduleItemStatus.done 
+                            ? TextDecoration.lineThrough 
+                            : null,
+                      ),
+                    ),
                   ),
-                )
-              : null,
+                ],
+              ),
+              subtitle: Text(
+                _statusText(entry.item.status),
+                style: TextStyle(
+                  fontSize: 10,
+                  color: isSelected ? Colors.white70 : Colors.grey,
+                ),
+              ),
+              trailing: isHovered
+                  ? IconButton(
+                      tooltip: AppLocalizations.tr(widget.languageCode, 'deleteEntry'),
+                      onPressed: canDelete ? () => widget.onDelete(entry.filteredIndex) : null,
+                      icon: Icon(
+                        Icons.close,
+                        color: canDelete ? Colors.red : Colors.grey,
+                        size: 18,
+                      ),
+                    )
+                  : null,
+            ),
+          ],
         ),
       ),
     );
+  }
+
+  Color _getBackgroundColor(ScheduleListEntry entry, bool isSelected, bool isHovered) {
+    if (isSelected) {
+      return const Color(0xFF055A0A);
+    }
+    if (isHovered) {
+      return const Color(0xFF2A2A2D);
+    }
+    
+    final typeIndex = entry.item.typeIndex;
+    if (typeIndex != null) {
+      return typeIndex.isOdd 
+          ? const Color(0xFF1C1C1E)
+          : const Color(0xFF2A2A2D);
+    }
+    
+    return Colors.transparent;
+  }
+
+  Color _getTypeColor(int typeIndex) {
+    switch (typeIndex) {
+      case 1:
+        return const Color(0xFF4CAF50);
+      case 2:
+        return const Color(0xFF2196F3); 
+      case 3:
+        return const Color(0xFFFF9800); 
+      case 4:
+        return const Color(0xFFE91E63); 
+      default:
+        return const Color(0xFF9C27B0); 
+    }
   }
 
   String _statusText(ScheduleItemStatus status) {
