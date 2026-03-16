@@ -593,7 +593,7 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
                                         items: availableThreads
                                             .map((thread) => DropdownMenuItem(
                                                   value: thread,
-                                                  child: Text('ПОТОК ${thread + 1}'),
+                                                  child: Text('ПОТОК $thread '),
                                                 ))
                                             .toList(),
                                         onChanged: (value) {
