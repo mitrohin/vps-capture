@@ -314,9 +314,17 @@ class SetupScreen extends ConsumerWidget {
                   child: TextFormField(
                     initialValue: cfg.ffmpegPreset,
                     decoration: const InputDecoration(labelText: 'FFmpeg preset', border: OutlineInputBorder()),
+                    onTapOutside: (_) => FocusScope.of(context).unfocus(),
+                    onChanged: (value) async {
+                      final trimmed = value.trim();
+                      if (trimmed.isNotEmpty && trimmed != state.config.ffmpegPreset) {
+                        await controller.updateConfig(state.config.copyWith(ffmpegPreset: trimmed));
+                      }
+                    },
                     onFieldSubmitted: (value) async {
-                      if (value.trim().isNotEmpty) {
-                        await controller.updateConfig(cfg.copyWith(ffmpegPreset: value.trim()));
+                      final trimmed = value.trim();
+                      if (trimmed.isNotEmpty) {
+                        await controller.updateConfig(state.config.copyWith(ffmpegPreset: trimmed));
                       }
                     },
                   ),
@@ -326,9 +334,17 @@ class SetupScreen extends ConsumerWidget {
                   child: TextFormField(
                     initialValue: cfg.movFlags,
                     decoration: const InputDecoration(labelText: 'movflags', border: OutlineInputBorder()),
+                    onTapOutside: (_) => FocusScope.of(context).unfocus(),
+                    onChanged: (value) async {
+                      final trimmed = value.trim();
+                      if (trimmed.isNotEmpty && trimmed != state.config.movFlags) {
+                        await controller.updateConfig(state.config.copyWith(movFlags: trimmed));
+                      }
+                    },
                     onFieldSubmitted: (value) async {
-                      if (value.trim().isNotEmpty) {
-                        await controller.updateConfig(cfg.copyWith(movFlags: value.trim()));
+                      final trimmed = value.trim();
+                      if (trimmed.isNotEmpty) {
+                        await controller.updateConfig(state.config.copyWith(movFlags: trimmed));
                       }
                     },
                   ),
