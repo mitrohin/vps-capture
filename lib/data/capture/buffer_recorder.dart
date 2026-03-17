@@ -26,13 +26,10 @@ class BufferRecorder {
     await stop();
     final segmentsDir = await _paths.segmentsDir();
     await _cleanSegments(segmentsDir, maxAgeMinutes: config.bufferMinutes);
+    final inputArgsWithProbeFlags = _prependProbeFlagsToInput(_backend.buildInputArgs(config));
 
     final args = <String>[
-      ..._backend.buildInputArgs(config),
-      '-analyzeduration',
-      '0',
-      '-probesize',
-      '32M',
+      ...inputArgsWithProbeFlags,
       '-map',
       '0:v:0',
       '-map',
@@ -88,6 +85,20 @@ class BufferRecorder {
     });
 
     return segmentsDir;
+  }
+
+  List<String> _prependProbeFlagsToInput(List<String> inputArgs) {
+    const probeFlags = <String>['-analyzeduration', '0', '-probesize', '32M'];
+    final inputIndex = inputArgs.indexOf('-i');
+    if (inputIndex <= 0) {
+      return [...probeFlags, ...inputArgs];
+    }
+
+    return [
+      ...inputArgs.take(inputIndex),
+      ...probeFlags,
+      ...inputArgs.skip(inputIndex),
+    ];
   }
 
   Future<void> stop() async {
