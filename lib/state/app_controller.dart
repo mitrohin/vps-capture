@@ -60,6 +60,7 @@ class AppController extends StateNotifier<AppState>  {
   final CaptureService _capture;
   final PreviewService _preview;
   final TestRecordService _testRecorder;
+  Timer? _configWriteDebounceTimer;
   
 
   SharedPreferences? _prefs;
@@ -144,6 +145,19 @@ class AppController extends StateNotifier<AppState>  {
 
   Future<void> updateConfig(AppConfig config) async {
     state = state.copyWith(config: config);
+    _configWriteDebounceTimer?.cancel();
+    await _persistConfig(config);
+  }
+
+  void updateConfigDebounced(AppConfig config, {Duration delay = const Duration(milliseconds: 350)}) {
+    state = state.copyWith(config: config);
+    _configWriteDebounceTimer?.cancel();
+    _configWriteDebounceTimer = Timer(delay, () {
+      unawaited(_persistConfig(config));
+    });
+  }
+
+  Future<void> _persistConfig(AppConfig config) async {
     final prefs = _prefs;
     if (prefs == null) return;
     await prefs.setString('ffmpegPath', config.ffmpegPath ?? '');
@@ -164,6 +178,12 @@ class AppController extends StateNotifier<AppState>  {
     await prefs.setString('languageCode', config.languageCode);
     await prefs.setString('selectedGif', config.selectedGif ?? 'blue');
     await prefs.setString('version', config.version);
+  }
+
+  @override
+  void dispose() {
+    _configWriteDebounceTimer?.cancel();
+    super.dispose();
   }
 
 

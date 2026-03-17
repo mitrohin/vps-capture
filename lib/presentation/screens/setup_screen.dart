@@ -315,10 +315,10 @@ class SetupScreen extends ConsumerWidget {
                     initialValue: cfg.ffmpegPreset,
                     decoration: const InputDecoration(labelText: 'FFmpeg preset', border: OutlineInputBorder()),
                     onTapOutside: (_) => FocusScope.of(context).unfocus(),
-                    onChanged: (value) async {
+                    onChanged: (value) {
                       final trimmed = value.trim();
                       if (trimmed.isNotEmpty && trimmed != state.config.ffmpegPreset) {
-                        await controller.updateConfig(state.config.copyWith(ffmpegPreset: trimmed));
+                        controller.updateConfigDebounced(state.config.copyWith(ffmpegPreset: trimmed));
                       }
                     },
                     onFieldSubmitted: (value) async {
@@ -335,10 +335,10 @@ class SetupScreen extends ConsumerWidget {
                     initialValue: cfg.movFlags,
                     decoration: const InputDecoration(labelText: 'movflags', border: OutlineInputBorder()),
                     onTapOutside: (_) => FocusScope.of(context).unfocus(),
-                    onChanged: (value) async {
+                    onChanged: (value) {
                       final trimmed = value.trim();
                       if (trimmed.isNotEmpty && trimmed != state.config.movFlags) {
-                        await controller.updateConfig(state.config.copyWith(movFlags: trimmed));
+                        controller.updateConfigDebounced(state.config.copyWith(movFlags: trimmed));
                       }
                     },
                     onFieldSubmitted: (value) async {
