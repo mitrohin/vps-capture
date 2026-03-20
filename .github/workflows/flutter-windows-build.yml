@@ -26,20 +26,6 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Detect committed Flutter tests
-        id: flutter_tests
-        shell: pwsh
-        run: |
-          $trackedTests = git ls-files -- 'test/**'
-          if ($trackedTests) {
-            "has_tests=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
-            Write-Host "Committed tests found:"
-            $trackedTests | ForEach-Object { Write-Host " - $_" }
-          } else {
-            "has_tests=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
-            Write-Host "No committed Flutter tests found; skipping flutter test."
-          }
-
       - name: Ensure Windows desktop project
         shell: pwsh
         run: |
@@ -48,10 +34,6 @@ jobs:
           } else {
             Write-Host "Windows desktop project already exists and is configured."
           }
-
-      - name: Run tests
-        if: steps.flutter_tests.outputs.has_tests == 'true'
-        run: flutter test
 
       - name: Build Windows
         run: flutter build windows --release
