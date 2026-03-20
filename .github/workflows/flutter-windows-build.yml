@@ -29,10 +29,10 @@ jobs:
       - name: Ensure Windows desktop project
         shell: pwsh
         run: |
-          if (-not (Test-Path windows)) {
+          if (-not (Test-Path "windows/CMakeLists.txt")) {
             flutter create --platforms=windows .
           } else {
-            Write-Host "Windows desktop project already exists."
+            Write-Host "Windows desktop project already exists and is configured."
           }
 
       - name: Detect Flutter tests
