@@ -56,6 +56,10 @@ jobs:
       - name: Build Windows
         run: flutter build windows --release
 
+      - name: Prepare Windows bundle
+        shell: pwsh
+        run: ./scripts/prepare_windows_bundle.ps1
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:

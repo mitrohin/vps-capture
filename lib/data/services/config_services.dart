@@ -9,28 +9,28 @@ class ConfigService {
 
   static const Map<String, Map<String, double>> defaultTextPositions = {
     'blue': {
-      'fioLeft': 0.08,
-      'fioBottom': 0.16,
-      'cityLeft': 0.08,
-      'cityBottom': 0.05,
+      'fioLeft': 0.19,
+      'fioBottom': 0.44,
+      'cityLeft': 0.05,
+      'cityBottom': 0.15,
     },
     'red': {
-      'fioLeft': 0.08,
-      'fioBottom': 0.16,
-      'cityLeft': 0.08,
-      'cityBottom': 0.05,
+      'fioLeft': 0.19,
+      'fioBottom': 0.44,
+      'cityLeft': 0.05,
+      'cityBottom': 0.15,
     },
     'fitness': {
-      'fioLeft': 0.08,
-      'fioBottom': 0.16,
-      'cityLeft': 0.08,
-      'cityBottom': 0.05,
+      'fioLeft': 0.25,
+      'fioBottom': 0.5,
+      'cityLeft': 0.45,
+      'cityBottom': 0.23,
     },
     'lenta': {
-      'fioLeft': 0.08,
-      'fioBottom': 0.16,
-      'cityLeft': 0.08,
-      'cityBottom': 0.05,
+      'fioLeft': 0.23,
+      'fioBottom': 0.28,
+      'cityLeft': 0.25,
+      'cityBottom': 0.18,
     },
   };
 
