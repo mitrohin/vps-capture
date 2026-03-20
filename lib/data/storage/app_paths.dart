@@ -33,14 +33,14 @@ class AppPaths {
     return executableDir;
   }
 
-  static List<String> getMacOSLegacyScheduleDirectories() {
-    if (!Platform.isMacOS) {
-      return const [];
-    }
-
+  static List<String> getLegacyScheduleDirectories() {
     final directories = <String>{};
-    directories.add(Directory(Platform.resolvedExecutable).parent.path);
+    directories.add(getExecutableDirectory());
     directories.add(Directory(Platform.executable).parent.path);
+
+    if (!Platform.isMacOS) {
+      return directories.toList(growable: false);
+    }
 
     for (final executablePath in [Platform.resolvedExecutable, Platform.executable]) {
       final appIndex = executablePath.indexOf('.app/Contents/');
@@ -55,27 +55,47 @@ class AppPaths {
   }
 
   static String getScheduleStorageDirectory() {
+    final resolvedDir = _resolveUserDataDirectory();
+    final dir = Directory(p.join(resolvedDir, 'gym_capture'));
+    if (!dir.existsSync()) {
+      dir.createSync(recursive: true);
+    }
+    return dir.path;
+  }
+
+  static String _resolveUserDataDirectory() {
     if (Platform.isMacOS) {
       final home = Platform.environment['HOME'];
       if (home != null && home.isNotEmpty) {
-        final appSupportDir = Directory(
-          p.join(home, 'Library', 'Application Support', 'gym_capture'),
-        );
-        if (!appSupportDir.existsSync()) {
-          appSupportDir.createSync(recursive: true);
-        }
-        return appSupportDir.path;
+        return p.join(home, 'Library', 'Application Support');
+      }
+    } else if (Platform.isWindows) {
+      final appData = Platform.environment['APPDATA'];
+      if (appData != null && appData.isNotEmpty) {
+        return appData;
       }
 
-      final fallbackDir = Directory(
-        p.join(Directory.systemTemp.path, 'gym_capture'),
-      );
-      if (!fallbackDir.existsSync()) {
-        fallbackDir.createSync(recursive: true);
+      final localAppData = Platform.environment['LOCALAPPDATA'];
+      if (localAppData != null && localAppData.isNotEmpty) {
+        return localAppData;
       }
-      return fallbackDir.path;
+
+      final userProfile = Platform.environment['USERPROFILE'];
+      if (userProfile != null && userProfile.isNotEmpty) {
+        return p.join(userProfile, 'AppData', 'Roaming');
+      }
+    } else {
+      final xdgDataHome = Platform.environment['XDG_DATA_HOME'];
+      if (xdgDataHome != null && xdgDataHome.isNotEmpty) {
+        return xdgDataHome;
+      }
+
+      final home = Platform.environment['HOME'];
+      if (home != null && home.isNotEmpty) {
+        return p.join(home, '.local', 'share');
+      }
     }
 
-    return getExecutableDirectory();
+    return Directory.systemTemp.path;
   }
 }

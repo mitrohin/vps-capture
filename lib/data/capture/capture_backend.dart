@@ -6,7 +6,7 @@ class CaptureBackend {
     final source = config.sourceKind;
     final videoDevice = config.selectedVideoDevice;
     final audioDevice = config.selectedAudioDevice;
-    if (source == null || videoDevice == null || audioDevice == null) throw ArgumentError('Missing source or device');
+    if (source == null || videoDevice == null) throw ArgumentError('Missing source or video device');
 
     switch (source) {
       case CaptureSourceKind.avFoundation:
@@ -17,9 +17,9 @@ class CaptureBackend {
       case CaptureSourceKind.directShow:
         // `id`/`audioId` can store alternative DirectShow names (`@device_*`),
         // which are safer for non-ASCII device labels.
-        final input = audioDevice.audioId == null
+        final input = audioDevice?.audioId == null
             ? 'video=${videoDevice.id}'
-            : 'video=${videoDevice.id}:audio=${audioDevice.audioId}';
+            : 'video=${videoDevice.id}:audio=${audioDevice!.audioId}';
         return ['-f', 'dshow', '-i', input];
       case CaptureSourceKind.deckLink:
         return ['-f', 'decklink', '-i', videoDevice.name];

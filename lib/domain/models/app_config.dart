@@ -45,8 +45,7 @@ class AppConfig {
       (ffmpegPath?.isNotEmpty ?? false) &&
       (outputDir?.isNotEmpty ?? false) &&
       sourceKind != null &&
-      selectedVideoDevice != null &&
-      selectedAudioDevice != null;
+      selectedVideoDevice != null;
 
   AppConfig copyWith({
     String? ffmpegPath,
