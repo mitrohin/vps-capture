@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show HardwareKeyboard, KeyDownEvent, KeyUpEvent, LogicalKeyboardKey;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,6 +11,15 @@ import '../../domain/models/schedule_item.dart';
 import '../../state/app_controller.dart';
 import '../widgets/gif_titres.dart';
 import '../widgets/schedule_list.dart';
+
+@visibleForTesting
+int? normalizeDropdownValue(int? selectedValue, Iterable<int> availableValues) {
+  if (selectedValue == null) {
+    return null;
+  }
+
+  return availableValues.contains(selectedValue) ? selectedValue : null;
+}
 
 class WorkScreen extends ConsumerStatefulWidget {
   const WorkScreen({super.key});
@@ -93,14 +103,24 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
     }
   }
 
+  int? _effectiveThreadFilter(List<ScheduleItem> items) {
+    return normalizeDropdownValue(_selectedThreadFilter, _getAvailableThreads(items));
+  }
+
+  int? _effectiveTypeFilter(List<ScheduleItem> items, int? threadIndex) {
+    return normalizeDropdownValue(_selectedTypeFilter, _getAvailableTypes(items, threadIndex));
+  }
+
   List<ScheduleItem> _getFilteredItems(List<ScheduleItem> items) {
+    final effectiveThreadFilter = _effectiveThreadFilter(items);
+    final effectiveTypeFilter = _effectiveTypeFilter(items, effectiveThreadFilter);
     final filteredItems = <ScheduleItem>[];
 
     for (var item in items) {
-      final threadMatch = _selectedThreadFilter == null ||
-          item.threadIndex == _selectedThreadFilter;
-      final typeMatch = _selectedTypeFilter == null ||
-          item.typeIndex == _selectedTypeFilter;
+      final threadMatch = effectiveThreadFilter == null ||
+          item.threadIndex == effectiveThreadFilter;
+      final typeMatch = effectiveTypeFilter == null ||
+          item.typeIndex == effectiveTypeFilter;
       if (!threadMatch || !typeMatch) continue;
       filteredItems.add(item);
     }
@@ -362,10 +382,12 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
     final controller = ref.read(appControllerProvider.notifier);
     final lang = state.config.languageCode;
 
-    final filteredItems = _getFilteredItems(state.schedule);
     final availableThreads = _getAvailableThreads(state.schedule);
+    final effectiveThreadFilter = _effectiveThreadFilter(state.schedule);
+    final availableTypes = _getAvailableTypes(state.schedule, effectiveThreadFilter);
+    final effectiveTypeFilter = _effectiveTypeFilter(state.schedule, effectiveThreadFilter);
+    final filteredItems = _getFilteredItems(state.schedule);
     final currentThread = _resolveCurrentThread(filteredItems);
-    final availableTypes = _getAvailableTypes(state.schedule, currentThread);
     final selectedFilteredIndex = (state.selectedIndex != null &&
             state.selectedIndex! >= 0 &&
             state.selectedIndex! < state.schedule.length)
@@ -385,11 +407,20 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
     final nextThreadItems = _buildThreadEntries(filteredItems, nextThread);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || currentThread == null || _selectedThreadFilter == currentThread) {
+      if (!mounted) {
         return;
       }
+
+      final nextThreadFilter = currentThread ?? effectiveThreadFilter;
+      final nextTypeFilter = _effectiveTypeFilter(state.schedule, nextThreadFilter);
+      if (_selectedThreadFilter == nextThreadFilter &&
+          _selectedTypeFilter == nextTypeFilter) {
+        return;
+      }
+
       setState(() {
-        _selectedThreadFilter = currentThread;
+        _selectedThreadFilter = nextThreadFilter;
+        _selectedTypeFilter = nextTypeFilter;
       });
     });
 
@@ -600,7 +631,7 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
                                     SizedBox(
                                       width: 160,
                                       child: DropdownButtonFormField<int>(
-                                        value: _selectedThreadFilter,
+                                        value: effectiveThreadFilter,
                                         dropdownColor: const Color(0xFF1C1C1E),
                                         style: const TextStyle(color: Colors.white),
                                         decoration: const InputDecoration(
@@ -617,6 +648,7 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
                                         onChanged: (value) {
                                           setState(() {
                                             _selectedThreadFilter = value;
+                                            _selectedTypeFilter = _effectiveTypeFilter(state.schedule, value);
                                           });
                                           _updateSelectedIndexAfterFilterChange();
                                         },
@@ -626,7 +658,7 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
                                     SizedBox(
                                       width: 160,
                                       child: DropdownButtonFormField<int?>(
-                                        value: _selectedTypeFilter,
+                                        value: effectiveTypeFilter,
                                         dropdownColor: const Color(0xFF1C1C1E),
                                         style: const TextStyle(color: Colors.white),
                                         decoration: const InputDecoration(
