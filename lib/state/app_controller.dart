@@ -269,6 +269,7 @@ class AppController extends StateNotifier<AppState>  {
       'city': item.city,
       'apparatus': item.apparatus,
       'status': item.status.toString().replaceAll("ScheduleItemStatus.", ""),
+      'isPinnedToPostponed': item.isPinnedToPostponed,
       'threadIndex': item.threadIndex,
       'typeIndex': item.typeIndex,
       'startedAt': item.startedAt?.toIso8601String(),
@@ -321,12 +322,15 @@ class AppController extends StateNotifier<AppState>  {
         final jsonString = await sourceFile.readAsString();
         final List<dynamic> jsonData = jsonDecode(jsonString);
         final List<ScheduleItem> loadedSchedule = jsonData.map((item) {
+          final status = _parseStatus(item['status']);
           return ScheduleItem(
             id: item['id'],
             fio: item['fio'],
             apparatus: item['apparatus'],
             city: item['city'],
-            status: _parseStatus(item['status']),
+            status: status,
+            isPinnedToPostponed:
+                item['isPinnedToPostponed'] == true || status == ScheduleItemStatus.postponed,
             startedAt: item['startedAt'] != null
                 ? DateTime.parse(item['startedAt'])
                 : null,
@@ -380,6 +384,7 @@ class AppController extends StateNotifier<AppState>  {
             'city': updatedItem.city,
             'apparatus': updatedItem.apparatus,
             'status': updatedItem.status.toString().replaceAll("ScheduleItemStatus.", ""),
+            'isPinnedToPostponed': updatedItem.isPinnedToPostponed,
             'threadIndex': updatedItem.threadIndex,
             'typeIndex': updatedItem.typeIndex,
             'startedAt': updatedItem.startedAt?.toIso8601String(),
@@ -429,7 +434,9 @@ class AppController extends StateNotifier<AppState>  {
         final currentItem = state.schedule[activeIndex];
         final reset = [...state.schedule];
         reset[activeIndex] = currentItem.copyWith(
-          status: ScheduleItemStatus.pending,
+          status: currentItem.isPinnedToPostponed
+              ? ScheduleItemStatus.postponed
+              : ScheduleItemStatus.pending,
           clearStartedAt: true,
         );
         state = state.copyWith(
@@ -442,7 +449,10 @@ class AppController extends StateNotifier<AppState>  {
 
       final start = DateTime.now();
       final updated = [...state.schedule];
-      updated[targetIndex] = item.copyWith(status: ScheduleItemStatus.active, startedAt: start);
+      updated[targetIndex] = item.copyWith(
+        status: ScheduleItemStatus.active,
+        startedAt: start,
+      );
       state = state.copyWith(
         schedule: updated,
         selectedIndex: targetIndex,
@@ -494,7 +504,12 @@ class AppController extends StateNotifier<AppState>  {
         _appendLog('STOP complete, clip saved: $out');
       } catch (_) {
         final updated = [...state.schedule];
-        updated[activeIndex] = item.copyWith(status: ScheduleItemStatus.pending, clearStartedAt: true);
+        updated[activeIndex] = item.copyWith(
+          status: item.isPinnedToPostponed
+              ? ScheduleItemStatus.postponed
+              : ScheduleItemStatus.pending,
+          clearStartedAt: true,
+        );
         state = state.copyWith(
           schedule: updated,
           isRecordingMarked: false,
@@ -525,6 +540,8 @@ class AppController extends StateNotifier<AppState>  {
       final updated = [...state.schedule];
       final item = updated[targetIndex].copyWith(
         status: ScheduleItemStatus.postponed,
+        isPinnedToPostponed: true,
+        clearStartedAt: true,
       );
       updated[targetIndex] = item;
       state = state.copyWith(schedule: updated, selectedIndex: targetIndex);
@@ -537,10 +554,11 @@ class AppController extends StateNotifier<AppState>  {
     final postponedIndexes = <int>[];
     final updated = [...state.schedule];
     for (var i = 0; i < updated.length; i++) {
-      if (updated[i].status == ScheduleItemStatus.postponed) {
+      if (updated[i].isPinnedToPostponed) {
         postponedIndexes.add(i);
         updated[i] = updated[i].copyWith(
           status: ScheduleItemStatus.pending,
+          isPinnedToPostponed: false,
           clearStartedAt: true,
         );
       }
@@ -569,10 +587,14 @@ class AppController extends StateNotifier<AppState>  {
   void restoreItem(int index) {
     if (index < 0 || index >= state.schedule.length) return;
     final item = state.schedule[index];
-    if (item.status != ScheduleItemStatus.done && item.status != ScheduleItemStatus.postponed) return;
+    if (item.status != ScheduleItemStatus.done && !item.isPinnedToPostponed) return;
 
     final updated = [...state.schedule];
-    updated[index] = item.copyWith(status: ScheduleItemStatus.pending, clearStartedAt: true);
+    updated[index] = item.copyWith(
+      status: ScheduleItemStatus.pending,
+      isPinnedToPostponed: false,
+      clearStartedAt: true,
+    );
     state = state.copyWith(schedule: updated, selectedIndex: index);
     unawaited(_updateScheduleItemInFile(updated[index]));
     _appendLog('Restored item: ${item.label}.');

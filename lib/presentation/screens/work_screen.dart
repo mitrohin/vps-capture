@@ -132,6 +132,7 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
     if (threadItems.isEmpty) return false;
     return threadItems.every(
       (item) =>
+          item.isPinnedToPostponed ||
           item.status == ScheduleItemStatus.done ||
           item.status == ScheduleItemStatus.postponed,
     );
@@ -176,7 +177,7 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
     final entries = <ScheduleListEntry>[];
     for (var index = 0; index < items.length; index++) {
       final item = items[index];
-      if (item.threadIndex == threadIndex && item.status != ScheduleItemStatus.postponed) {
+      if (item.threadIndex == threadIndex && !item.isPinnedToPostponed) {
         entries.add(ScheduleListEntry(item: item, filteredIndex: index));
       }
     }
@@ -655,7 +656,7 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
                                   nextThreadItems: nextThreadItems,
                                   postponedItems: _buildEntriesFromItems(
                                     filteredItems,
-                                    (item) => item.status == ScheduleItemStatus.postponed,
+                                    (item) => item.isPinnedToPostponed,
                                   ),
                                   selectedIndex: selectedFilteredIndex,
                                   onSelect: (filteredIndex) {
@@ -700,7 +701,7 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
                                           label: AppLocalizations.tr(lang, 'restoreEntry'),
                                           onPressed: (selectedGlobalIndex != null &&
                                                   selectedItem != null &&
-                                                  selectedItem.status == ScheduleItemStatus.postponed)
+                                                  selectedItem.isPinnedToPostponed)
                                               ? () => controller.restoreItem(selectedGlobalIndex)
                                               : null,
                                         ),
