@@ -19,7 +19,7 @@ class AppConfig {
     this.preRollSeconds = 2,
     this.languageCode = 'en',
     this.selectedGif,
-    this.version = '1.0.0',
+    this.version = '1.0.1',
   });
 
   final String? ffmpegPath;

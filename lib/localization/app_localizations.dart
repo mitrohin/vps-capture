@@ -65,7 +65,11 @@ class AppLocalizations {
       'labelTimerGifs': 'Timer GIFs (sec)',
       'hintTimerGifs': 'Enter a number',
       'suffixTimerGifs': 'sec',
-      'setupVersion': 'version'
+      'setupVersion': 'version',
+      'fullResetSettings': 'Full reset settings',
+      'fullResetWarningTitle': 'Reset all settings?',
+      'fullResetWarningMessage': 'This will return all settings to defaults, clear the schedule queue and delete saved temporary data. This action cannot be undone.',
+      'reset': 'Reset',
     },
     'ru': {
       'appTitle': 'ВПС Захват',
@@ -125,7 +129,11 @@ class AppLocalizations {
       'labelTimerGifs': 'GIF-таймер (сек)',
       'hintTimerGifs': 'Введите число',
       'suffixTimerGifs': 'сек',
-      'setupVersion': 'версия'
+      'setupVersion': 'версия',
+      'fullResetSettings': 'Полный сброс настроек',
+      'fullResetWarningTitle': 'Сбросить все настройки?',
+      'fullResetWarningMessage': 'Все настройки вернутся к значениям по умолчанию, очередь расписания и временные данные будут удалены. Это действие нельзя отменить.',
+      'reset': 'Сбросить',
     },
     'tr': {
       'appTitle': 'VPS Capture',
@@ -185,7 +193,11 @@ class AppLocalizations {
       'labelTimerGifs': 'GIF zamanlayıcısı (sn)',
       'hintTimerGifs': 'Numarayı girin',
       'suffixTimerGifs': 'sn',
-      'setupVersion': 'versiyon'
+      'setupVersion': 'versiyon',
+      'fullResetSettings': 'Ayarları tamamen sıfırla',
+      'fullResetWarningTitle': 'Tüm ayarlar sıfırlansın mı?',
+      'fullResetWarningMessage': 'Bu işlem tüm ayarları varsayılana döndürür, program kuyruğunu temizler ve geçici verileri siler. Bu işlem geri alınamaz.',
+      'reset': 'Sıfırla',
     },
   };
 

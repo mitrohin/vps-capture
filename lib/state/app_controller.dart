@@ -42,6 +42,8 @@ final appControllerProvider = StateNotifierProvider<AppController, AppState>((re
 });
 
 class AppController extends StateNotifier<AppState>  {
+  static const String currentAppVersion = '1.0.1';
+
   AppController(
     this._locator,
     this._installer,
@@ -74,27 +76,7 @@ class AppController extends StateNotifier<AppState>  {
     }
 
     final located = await _locator.locate();
-    final codec = Platform.isMacOS ? 'h264_videotoolbox' : 'libx264';
-    final cfg = AppConfig(
-      ffmpegPath: _stringOrNull(_prefs!.getString('ffmpegPath')) ?? located.ffmpegPath,
-      ffplayPath: _stringOrNull(_prefs!.getString('ffplayPath')) ?? located.ffplayPath,
-      outputDir: _stringOrNull(_prefs!.getString('outputDir')),
-      sourceKind: _readSource(_prefs!.getString('sourceKind')),
-      selectedVideoDevice: _readDevice(_prefs!.getString('selectedVideoDevice')),
-      selectedAudioDevice: _readDevice(_prefs!.getString('selectedAudioDevice')),
-      codec: _stringOrNull(_prefs!.getString('codec')) ?? codec,
-      videoBitrate: _prefs!.getString('videoBitrate') ?? '8M',
-      audioBitrate: _prefs!.getString('audioBitrate') ?? '128k',
-      ffmpegPreset: _prefs!.getString('ffmpegPreset') ?? 'veryfast',
-      movFlags: _prefs!.getString('movFlags') ?? '+faststart',
-      fps: _prefs!.getInt('fps') ?? 30,
-      segmentSeconds: _prefs!.getInt('segmentSeconds') ?? 1,
-      bufferMinutes: _prefs!.getInt('bufferMinutes') ?? 8,
-      preRollSeconds: _prefs!.getInt('preRollSeconds') ?? 2,
-      languageCode: _stringOrNull(_prefs!.getString('languageCode')) ?? 'en',
-      selectedGif: _prefs!.getString('selectedGif') ?? 'blue',
-      version: _prefs!.getString('version') ?? '1.0.0'
-    );
+    final cfg = _buildConfigFromPrefs(located);
     state = state.copyWith(config: cfg);
     await loadScheduleFromFile();
     if (hasCompletedFirstLaunch && cfg.isComplete) {
@@ -178,6 +160,34 @@ class AppController extends StateNotifier<AppState>  {
     await prefs.setString('languageCode', config.languageCode);
     await prefs.setString('selectedGif', config.selectedGif ?? 'blue');
     await prefs.setString('version', config.version);
+  }
+
+  Future<void> resetAllSettings() async {
+    await _guard(() async {
+      await _capture.stopBuffer();
+      await _preview.stop();
+      await _testRecorder.stop(state.config, _appendLog);
+      _configWriteDebounceTimer?.cancel();
+
+      final located = await _locator.locate();
+      final defaultConfig = _defaultConfig(located);
+
+      final prefs = _prefs;
+      if (prefs != null) {
+        await prefs.clear();
+        await prefs.setBool('hasCompletedFirstLaunch', true);
+      }
+
+      await _persistConfig(defaultConfig);
+      await _deleteScheduleStorageFiles();
+      await _clearSegmentsDirectory();
+      await _deleteConcatListFile();
+
+      state = AppState(
+        config: defaultConfig,
+        logs: ['[${DateTime.now().toIso8601String()}] Settings were fully reset.'],
+      );
+    });
   }
 
   @override
@@ -733,6 +743,73 @@ class AppController extends StateNotifier<AppState>  {
       if (status == ScheduleItemStatus.pending || status == ScheduleItemStatus.postponed) return i;
     }
     return from;
+  }
+
+  AppConfig _buildConfigFromPrefs(LocatedFfmpeg located) {
+    final prefs = _prefs!;
+    final defaultConfig = _defaultConfig(located);
+    return AppConfig(
+      ffmpegPath: _stringOrNull(prefs.getString('ffmpegPath')) ?? defaultConfig.ffmpegPath,
+      ffplayPath: _stringOrNull(prefs.getString('ffplayPath')) ?? defaultConfig.ffplayPath,
+      outputDir: _stringOrNull(prefs.getString('outputDir')),
+      sourceKind: _readSource(prefs.getString('sourceKind')),
+      selectedVideoDevice: _readDevice(prefs.getString('selectedVideoDevice')),
+      selectedAudioDevice: _readDevice(prefs.getString('selectedAudioDevice')),
+      codec: _stringOrNull(prefs.getString('codec')) ?? defaultConfig.codec,
+      videoBitrate: prefs.getString('videoBitrate') ?? defaultConfig.videoBitrate,
+      audioBitrate: prefs.getString('audioBitrate') ?? defaultConfig.audioBitrate,
+      ffmpegPreset: prefs.getString('ffmpegPreset') ?? defaultConfig.ffmpegPreset,
+      movFlags: prefs.getString('movFlags') ?? defaultConfig.movFlags,
+      fps: prefs.getInt('fps') ?? defaultConfig.fps,
+      segmentSeconds: prefs.getInt('segmentSeconds') ?? defaultConfig.segmentSeconds,
+      bufferMinutes: prefs.getInt('bufferMinutes') ?? defaultConfig.bufferMinutes,
+      preRollSeconds: prefs.getInt('preRollSeconds') ?? defaultConfig.preRollSeconds,
+      languageCode: _stringOrNull(prefs.getString('languageCode')) ?? defaultConfig.languageCode,
+      selectedGif: prefs.getString('selectedGif') ?? defaultConfig.selectedGif,
+      version: currentAppVersion,
+    );
+  }
+
+  AppConfig _defaultConfig(LocatedFfmpeg located) {
+    return AppConfig(
+      ffmpegPath: located.ffmpegPath,
+      ffplayPath: located.ffplayPath,
+      codec: Platform.isMacOS ? 'h264_videotoolbox' : 'libx264',
+      selectedGif: 'blue',
+      version: currentAppVersion,
+    );
+  }
+
+  Future<void> _deleteScheduleStorageFiles() async {
+    final storageDir = Directory(AppPaths.getScheduleStorageDirectory());
+    final targets = [
+      File(p.join(storageDir.path, 'schedule.json')),
+      File(p.join(storageDir.path, 'config.json')),
+    ];
+
+    for (final file in targets) {
+      if (await file.exists()) {
+        await file.delete();
+      }
+    }
+  }
+
+  Future<void> _clearSegmentsDirectory() async {
+    final segmentsDir = await AppPaths().segmentsDir();
+    if (!await segmentsDir.exists()) {
+      return;
+    }
+
+    await for (final entity in segmentsDir.list()) {
+      await entity.delete(recursive: true);
+    }
+  }
+
+  Future<void> _deleteConcatListFile() async {
+    final concatListFile = await AppPaths().concatListFile();
+    if (await concatListFile.exists()) {
+      await concatListFile.delete();
+    }
   }
 
 
