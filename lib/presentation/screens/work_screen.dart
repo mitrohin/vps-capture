@@ -189,6 +189,7 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
   List<ScheduleListEntry> _buildThreadEntries(
     List<ScheduleItem> items,
     int? threadIndex,
+    int? typeIndex,
   ) {
     if (threadIndex == null && items.isEmpty) {
       return const [];
@@ -197,8 +198,9 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
     final entries = <ScheduleListEntry>[];
     for (var index = 0; index < items.length; index++) {
       final item = items[index];
-      if (item.threadIndex == threadIndex && !item.isPinnedToPostponed) {
-        entries.add(ScheduleListEntry(item: item, filteredIndex: index));
+      final typeMatches = typeIndex == null || item.typeIndex == typeIndex;
+      if (item.threadIndex == threadIndex && typeMatches && !item.isPinnedToPostponed) {
+        entries.add(ScheduleListEntry(item: item, globalIndex: index));
       }
     }
     return entries;
@@ -216,7 +218,7 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
       if (!predicate(item)) {
         continue;
       }
-      entries.add(ScheduleListEntry(item: item, filteredIndex: index));
+      entries.add(ScheduleListEntry(item: item, globalIndex: index));
     }
     return entries;
   }
@@ -387,31 +389,44 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
     final availableTypes = _getAvailableTypes(state.schedule, effectiveThreadFilter);
     final effectiveTypeFilter = _effectiveTypeFilter(state.schedule, effectiveThreadFilter);
     final filteredItems = _getFilteredItems(state.schedule);
-    final currentThread = _resolveCurrentThread(filteredItems);
-    final selectedFilteredIndex = (state.selectedIndex != null &&
+    final selectedGlobalIndex = (state.selectedIndex != null &&
             state.selectedIndex! >= 0 &&
             state.selectedIndex! < state.schedule.length)
-        ? filteredItems.indexWhere((item) => item.id == state.schedule[state.selectedIndex!].id)
-        : null;
-    final selectedGlobalIndex = (selectedFilteredIndex != null && selectedFilteredIndex >= 0)
-        ? getGlobalIndex(selectedFilteredIndex)
+        ? state.selectedIndex
         : null;
     final selectedItem = (selectedGlobalIndex != null &&
             selectedGlobalIndex >= 0 &&
             selectedGlobalIndex < state.schedule.length)
         ? state.schedule[selectedGlobalIndex]
         : null;
-    final threadOrder = _getVisibleThreadOrder(filteredItems).whereType<int>().toList(growable: false);
+    final threadOrder = availableThreads;
+    final currentThread = effectiveThreadFilter ??
+        (threadOrder.isNotEmpty ? threadOrder.first : null);
     final nextThread = currentThread == null ? null : _nextVisibleThread(threadOrder, currentThread);
-    final currentThreadItems = _buildThreadEntries(filteredItems, currentThread);
-    final nextThreadItems = _buildThreadEntries(filteredItems, nextThread);
+    final currentThreadItems = _buildThreadEntries(
+      state.schedule,
+      currentThread,
+      effectiveTypeFilter,
+    );
+    final nextThreadItems = _buildThreadEntries(
+      state.schedule,
+      nextThread,
+      effectiveTypeFilter,
+    );
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) {
         return;
       }
 
-      final nextThreadFilter = currentThread ?? effectiveThreadFilter;
+      var nextThreadFilter = effectiveThreadFilter;
+      if (threadOrder.isNotEmpty && nextThreadFilter == null) {
+        nextThreadFilter = threadOrder.first;
+      }
+      if (nextThreadFilter != null && _isThreadCompleted(state.schedule, nextThreadFilter)) {
+        nextThreadFilter = _nextVisibleThread(threadOrder, nextThreadFilter) ?? nextThreadFilter;
+      }
+
       final nextTypeFilter = _effectiveTypeFilter(state.schedule, nextThreadFilter);
       if (_selectedThreadFilter == nextThreadFilter &&
           _selectedTypeFilter == nextTypeFilter) {
@@ -687,19 +702,17 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
                                   currentThreadItems: currentThreadItems,
                                   nextThreadItems: nextThreadItems,
                                   postponedItems: _buildEntriesFromItems(
-                                    filteredItems,
+                                    state.schedule,
                                     (item) => item.isPinnedToPostponed,
                                   ),
-                                  selectedIndex: selectedFilteredIndex,
-                                  onSelect: (filteredIndex) {
-                                    final globalIndex = getGlobalIndex(filteredIndex);
-                                    if (globalIndex != -1) {
+                                  selectedIndex: selectedGlobalIndex,
+                                  onSelect: (globalIndex) {
+                                    if (globalIndex >= 0 && globalIndex < state.schedule.length) {
                                       controller.selectIndex(globalIndex);
                                     }
                                   },
-                                  onDelete: (filteredIndex) {
-                                    final globalIndex = getGlobalIndex(filteredIndex);
-                                    if (globalIndex != -1) {
+                                  onDelete: (globalIndex) {
+                                    if (globalIndex >= 0 && globalIndex < state.schedule.length) {
                                       controller.deleteItem(globalIndex);
                                     }
                                   },
@@ -708,6 +721,7 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
                                   currentThreadTitle: 'ТЕКУЩИЙ ПОТОК',
                                   nextThreadTitle: 'СЛЕДУЮЩИЙ ПОТОК',
                                   postponedTitle: 'ОТЛОЖЕННЫЕ',
+                                  nextThreadEmptyLabel: nextThread == null ? 'КОНЕЦ' : null,
                                   middleControls: SizedBox(
                                     width: 160,
                                     child: Column(
