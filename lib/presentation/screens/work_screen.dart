@@ -31,11 +31,20 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
   void _updateSelectedIndexAfterFilterChange() {
     final state = ref.read(appControllerProvider);
     final filteredItems = _getFilteredItems(state.schedule);
-    if (filteredItems.isNotEmpty) {
-      final globalIndex = state.schedule.indexWhere((item) => item.id == filteredItems.first.id);
-      if (globalIndex != -1) {
-        ref.read(appControllerProvider.notifier).selectIndex(globalIndex);
-      }
+    if (filteredItems.isEmpty) {
+      return;
+    }
+
+    final prioritizedItem = filteredItems.firstWhere(
+      (item) => item.status == ScheduleItemStatus.pending,
+      orElse: () => filteredItems.firstWhere(
+        (item) => item.status == ScheduleItemStatus.postponed,
+        orElse: () => filteredItems.first,
+      ),
+    );
+    final globalIndex = state.schedule.indexWhere((item) => item.id == prioritizedItem.id);
+    if (globalIndex != -1) {
+      ref.read(appControllerProvider.notifier).selectIndex(globalIndex);
     }
   }
   
@@ -86,11 +95,13 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
 
   List<ScheduleItem> _getFilteredItems(List<ScheduleItem> items) {
     final filteredItems = <ScheduleItem>[];
-    
+
     for (var item in items) {
+      final threadMatch = _selectedThreadFilter == null ||
+          item.threadIndex == _selectedThreadFilter;
       final typeMatch = _selectedTypeFilter == null ||
           item.typeIndex == _selectedTypeFilter;
-      if (!typeMatch) continue;
+      if (!threadMatch || !typeMatch) continue;
       filteredItems.add(item);
     }
     return filteredItems;
