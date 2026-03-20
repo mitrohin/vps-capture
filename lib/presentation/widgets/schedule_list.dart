@@ -254,6 +254,7 @@ class _ScheduleListState extends State<ScheduleList> {
                         decoration: entry.item.status == ScheduleItemStatus.done 
                             ? TextDecoration.lineThrough 
                             : null,
+                        decorationThickness: 2.5
                       ),
                     ),
                   ),
@@ -312,6 +313,14 @@ class _ScheduleListState extends State<ScheduleList> {
         return const Color(0xFFFF9800); 
       case 4:
         return const Color(0xFFE91E63); 
+      case 5:
+        return const Color.fromARGB(255, 0, 60, 151);
+      case 6:
+        return const Color.fromARGB(255, 0, 255, 191); 
+      case 7:
+        return const Color.fromARGB(255, 119, 0, 255); 
+      case 8:
+        return const Color.fromARGB(255, 255, 73, 133); 
       default:
         return const Color(0xFF9C27B0); 
     }
