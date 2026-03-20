@@ -26,7 +26,19 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Detect Flutter tests
+        id: flutter_tests
+        shell: pwsh
+        run: |
+          if (Test-Path test) {
+            "has_tests=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          } else {
+            "has_tests=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+            Write-Host "No test directory found; skipping flutter test."
+          }
+
       - name: Run tests
+        if: steps.flutter_tests.outputs.has_tests == 'true'
         run: flutter test
 
       - name: Build Windows
