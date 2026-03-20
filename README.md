@@ -19,6 +19,7 @@ Gym Capture is a desktop app for gymnastics competitions. It continuously record
 ## Build
 - macOS: `flutter build macos`
 - Windows: `flutter build windows` (run this on Windows)
+- Windows bundle post-processing: after the release build, run `./scripts/prepare_windows_bundle.ps1` to place `config.json` and a bundled `ffmpeg/` directory into `build/windows/x64/runner/Release/` before zipping or publishing the app. The GitHub Actions Windows workflow now runs this step automatically.
 
 ## Build troubleshooting (macOS)
 - If `CodeSign failed` references `.../Contents/MacOS/schedule.json`, stale runtime files are still inside the previous build bundle.
