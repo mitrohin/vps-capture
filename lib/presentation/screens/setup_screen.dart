@@ -12,6 +12,35 @@ import '../widgets/log_panel.dart';
 class SetupScreen extends ConsumerWidget {
   const SetupScreen({super.key});
 
+  Future<void> _confirmFullReset(
+    BuildContext context,
+    WidgetRef ref,
+    String languageCode,
+  ) async {
+    final shouldReset = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(AppLocalizations.tr(languageCode, 'fullResetWarningTitle')),
+        content: Text(AppLocalizations.tr(languageCode, 'fullResetWarningMessage')),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(AppLocalizations.tr(languageCode, 'cancel')),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(AppLocalizations.tr(languageCode, 'reset')),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldReset == true && context.mounted) {
+      await ref.read(appControllerProvider.notifier).resetAllSettings();
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(appControllerProvider);
@@ -355,6 +384,15 @@ class SetupScreen extends ConsumerWidget {
             FilledButton(
               onPressed: cfg.isComplete && state.devices.isNotEmpty ? controller.enterWorkMode : null,
               child: Text(AppLocalizations.tr(lang, 'continueToWork')),
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
+              onPressed: state.isLoading
+                  ? null
+                  : () => _confirmFullReset(context, ref, lang),
+              icon: const Icon(Icons.warning_amber_rounded),
+              label: Text(AppLocalizations.tr(lang, 'fullResetSettings')),
             ),
             const SizedBox(height: 12),
             Expanded(child: LogPanel(logs: state.logs)),
