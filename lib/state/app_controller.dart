@@ -782,9 +782,12 @@ class AppController extends StateNotifier<AppState>  {
 
   Future<void> _deleteScheduleStorageFiles() async {
     final storageDir = Directory(AppPaths.getScheduleStorageDirectory());
-    final targets = [
+    final targets = <File>[
       File(p.join(storageDir.path, 'schedule.json')),
       File(p.join(storageDir.path, 'config.json')),
+      if (Platform.isMacOS)
+        ...AppPaths.getMacOSLegacyScheduleDirectories()
+            .map((dirPath) => File(p.join(dirPath, 'schedule.json'))),
     ];
 
     for (final file in targets) {
