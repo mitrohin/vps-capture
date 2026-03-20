@@ -184,7 +184,10 @@ class GifTitresState extends ConsumerState<GifTitres> {
                           ),
                         ],
                       ),
-                    ).animate().fadeIn(duration: Duration(milliseconds: (widget.delayTime * 1000).toInt())).slide(begin: const Offset(-1, 0), end: const Offset(0,0), duration: Duration(milliseconds: (widget.delayTime * 500).toInt()), curve: Curves.easeOutQuad),
+                    ).animate().fadeIn(
+                      delay: Duration(milliseconds: widget.delayTime*270),
+                      duration: Duration(milliseconds: (270).toInt())
+                      ),
                   ),
                   if (_isShowingGif)
                   Positioned(
@@ -204,7 +207,10 @@ class GifTitresState extends ConsumerState<GifTitres> {
                           ),
                         ],
                       ),
-                    ).animate().fadeIn(duration: Duration(milliseconds: (widget.delayTime * 1000).toInt())),
+                    ).animate().fadeIn(
+                      delay: Duration(milliseconds: widget.delayTime*320),
+                      duration: Duration(milliseconds: (320).toInt())
+                      ),
                   ),
                 ],
               );
