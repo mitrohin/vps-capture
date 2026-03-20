@@ -1,5 +1,6 @@
 import '../domain/models/app_config.dart';
 import '../domain/models/capture_device.dart';
+import '../domain/models/ffmpeg_issue.dart';
 import '../domain/models/schedule_item.dart';
 
 enum AppMode { setup, work }
@@ -18,6 +19,7 @@ class AppState {
     this.isPreviewRunning = false,
     this.isTestRecording = false,
     this.isScheduleInputVisible = true,
+    this.ffmpegIssue,
   });
 
   final AppMode mode;
@@ -32,6 +34,7 @@ class AppState {
   final bool isPreviewRunning;
   final bool isTestRecording;
   final bool isScheduleInputVisible;
+  final FfmpegIssue? ffmpegIssue;
 
   ScheduleItem? get selectedItem {
     final index = selectedIndex;
@@ -54,6 +57,8 @@ class AppState {
     bool? isPreviewRunning,
     bool? isTestRecording,
     bool? isScheduleInputVisible,
+    FfmpegIssue? ffmpegIssue,
+    bool clearFfmpegIssue = false,
   }) {
     return AppState(
       mode: mode ?? this.mode,
@@ -68,6 +73,7 @@ class AppState {
       isPreviewRunning: isPreviewRunning ?? this.isPreviewRunning,
       isTestRecording: isTestRecording ?? this.isTestRecording,
       isScheduleInputVisible: isScheduleInputVisible ?? this.isScheduleInputVisible,
+      ffmpegIssue: clearFfmpegIssue ? null : (ffmpegIssue ?? this.ffmpegIssue),
     );
   }
 }

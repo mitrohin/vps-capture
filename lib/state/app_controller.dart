@@ -23,6 +23,7 @@ import '../data/schedule/schedule_parser.dart';
 import '../data/storage/app_paths.dart';
 import '../domain/models/app_config.dart';
 import '../domain/models/capture_device.dart';
+import '../domain/models/ffmpeg_issue.dart';
 import '../domain/models/schedule_item.dart';
 import 'app_state.dart';
 
@@ -733,6 +734,30 @@ class AppController extends StateNotifier<AppState>  {
     });
   }
 
+  void dismissFfmpegIssue() {
+    state = state.copyWith(clearFfmpegIssue: true);
+  }
+
+  Future<String?> saveFfmpegIssueReport() async {
+    final issue = state.ffmpegIssue;
+    if (issue == null) return null;
+
+    final filePath = await FilePicker.platform.saveFile(
+      dialogTitle: 'Save ffmpeg error report',
+      fileName: 'ffmpeg_error_${issue.occurredAt.toIso8601String().replaceAll(':', '-')}.txt',
+      type: FileType.custom,
+      allowedExtensions: const ['txt'],
+    );
+    if (filePath == null || filePath.trim().isEmpty) {
+      return null;
+    }
+
+    final file = File(filePath);
+    await file.writeAsString(issue.report);
+    _appendLog('ffmpeg error report saved: $filePath');
+    return filePath;
+  }
+
   int _findNextReady(List<ScheduleItem> items, int from) {
     for (var i = from + 1; i < items.length; i++) {
       final status = items[i].status;
@@ -835,6 +860,13 @@ class AppController extends StateNotifier<AppState>  {
     try {
       state = state.copyWith(isLoading: true);
       await work();
+    } on FfmpegStartupException catch (error) {
+      _appendLog('FFMPEG START ERROR: ${error.message}');
+      final output = error.output.trim();
+      if (output.isNotEmpty) {
+        _appendLog(output);
+      }
+      state = state.copyWith(ffmpegIssue: _buildFfmpegIssue(error));
     } catch (e, st) {
       _appendLog('ERROR: $e');
       if (kDebugMode) {
@@ -848,6 +880,61 @@ class AppController extends StateNotifier<AppState>  {
   void _appendLog(String line) {
     final next = [...state.logs, '[${DateTime.now().toIso8601String()}] $line'];
     state = state.copyWith(logs: next.takeLast(400).toList());
+  }
+
+  FfmpegIssue _buildFfmpegIssue(FfmpegStartupException error) {
+    final now = DateTime.now();
+    final config = state.config;
+    final video = config.selectedVideoDevice;
+    final audio = config.selectedAudioDevice;
+    final recentLogs = state.logs.takeLast(80).join('\n');
+    final summaryBuffer = StringBuffer(error.message);
+    if (error.exitCode != null) {
+      summaryBuffer.write(' Exit code: ${error.exitCode}.');
+    }
+
+    final report = StringBuffer()
+      ..writeln('VPS Capture ffmpeg startup error report')
+      ..writeln('Generated at: ${now.toIso8601String()}')
+      ..writeln('App version: ${config.version}')
+      ..writeln('Platform: ${Platform.operatingSystem} ${Platform.operatingSystemVersion}')
+      ..writeln('Language: ${config.languageCode}')
+      ..writeln()
+      ..writeln('Capture configuration')
+      ..writeln('- ffmpeg: ${config.ffmpegPath ?? 'not set'}')
+      ..writeln('- outputDir: ${config.outputDir ?? 'not set'}')
+      ..writeln('- sourceKind: ${config.sourceKind?.name ?? 'not set'}')
+      ..writeln('- codec: ${config.codec ?? 'not set'}')
+      ..writeln('- videoBitrate: ${config.videoBitrate}')
+      ..writeln('- audioBitrate: ${config.audioBitrate}')
+      ..writeln('- ffmpegPreset: ${config.ffmpegPreset}')
+      ..writeln('- fps: ${config.fps}')
+      ..writeln('- segmentSeconds: ${config.segmentSeconds}')
+      ..writeln('- bufferMinutes: ${config.bufferMinutes}')
+      ..writeln('- preRollSeconds: ${config.preRollSeconds}')
+      ..writeln('- videoDevice: ${video == null ? 'not set' : '${video.name} [${video.id}]'}')
+      ..writeln(
+        '- audioDevice: ${audio == null ? 'not set' : '${audio.audioName ?? audio.name} [${audio.audioId ?? audio.id}]'}',
+      )
+      ..writeln()
+      ..writeln('ffmpeg startup failure')
+      ..writeln('- message: ${error.message}')
+      ..writeln('- exitCode: ${error.exitCode ?? 'unknown'}')
+      ..writeln('- command: ${error.command}')
+      ..writeln('- arguments: ${error.arguments.join(' ')}')
+      ..writeln()
+      ..writeln('ffmpeg output')
+      ..writeln(error.output.trim().isEmpty ? 'No ffmpeg output captured.' : error.output.trim())
+      ..writeln()
+      ..writeln('Recent application log')
+      ..writeln(recentLogs.isEmpty ? 'No application log entries available.' : recentLogs);
+
+    return FfmpegIssue(
+      id: now.microsecondsSinceEpoch.toString(),
+      summary: summaryBuffer.toString(),
+      report: report.toString(),
+      occurredAt: now,
+    );
   }
 
   List<CaptureDevice> _deduplicateDevices(List<CaptureDevice> devices) {

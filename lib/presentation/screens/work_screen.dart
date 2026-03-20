@@ -2,13 +2,16 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show HardwareKeyboard, KeyDownEvent, KeyUpEvent, LogicalKeyboardKey;
+import 'package:flutter/services.dart'
+    show Clipboard, ClipboardData, HardwareKeyboard, KeyDownEvent, KeyUpEvent, LogicalKeyboardKey;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'dart:async';
 
+import '../../domain/models/ffmpeg_issue.dart';
 import '../../localization/app_localizations.dart';
 import '../../domain/models/schedule_item.dart';
 import '../../state/app_controller.dart';
+import '../../state/app_state.dart';
 import '../widgets/gif_titres.dart';
 import '../widgets/schedule_list.dart';
 
@@ -37,6 +40,7 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
   final TextEditingController _timeController = TextEditingController();
   final FocusNode _listFocusNode = FocusNode(debugLabel: 'participants_list_focus');
   bool _ctrlAltPostponeTriggered = false;
+  bool _isFfmpegDialogVisible = false;
 
   void _updateSelectedIndexAfterFilterChange() {
     final state = ref.read(appControllerProvider);
@@ -378,11 +382,92 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
         );
   }
 
+  Future<void> _showFfmpegIssueDialog(FfmpegIssue issue, String lang) async {
+    _isFfmpegDialogVisible = true;
+    final controller = ref.read(appControllerProvider.notifier);
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(AppLocalizations.tr(lang, 'ffmpegErrorTitle')),
+        content: SizedBox(
+          width: 720,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(AppLocalizations.tr(lang, 'ffmpegErrorMessage')),
+              const SizedBox(height: 12),
+              Text(
+                issue.summary,
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                height: 320,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF111111),
+                  border: Border.all(color: Colors.white24),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: SingleChildScrollView(
+                  child: SelectableText(issue.report),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () async {
+              await Clipboard.setData(ClipboardData(text: issue.report));
+              if (!mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(AppLocalizations.tr(lang, 'ffmpegErrorCopied'))),
+              );
+            },
+            child: Text(AppLocalizations.tr(lang, 'copyError')),
+          ),
+          FilledButton.tonal(
+            onPressed: () async {
+              final savedPath = await controller.saveFfmpegIssueReport();
+              if (!mounted || savedPath == null) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('${AppLocalizations.tr(lang, 'ffmpegErrorSaved')}: $savedPath')),
+              );
+            },
+            child: Text(AppLocalizations.tr(lang, 'saveError')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: Text(AppLocalizations.tr(lang, 'close')),
+          ),
+        ],
+      ),
+    );
+
+    controller.dismissFfmpegIssue();
+    _isFfmpegDialogVisible = false;
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(appControllerProvider);
     final controller = ref.read(appControllerProvider.notifier);
     final lang = state.config.languageCode;
+
+    ref.listen<AppState>(appControllerProvider, (previous, next) {
+      final previousId = previous?.ffmpegIssue?.id;
+      final nextIssue = next.ffmpegIssue;
+      if (!mounted || nextIssue == null || _isFfmpegDialogVisible || previousId == nextIssue.id) {
+        return;
+      }
+
+      unawaited(_showFfmpegIssueDialog(nextIssue, next.config.languageCode));
+    });
 
     final availableThreads = _getAvailableThreads(state.schedule);
     final effectiveThreadFilter = _effectiveThreadFilter(state.schedule);
