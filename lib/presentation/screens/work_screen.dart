@@ -382,6 +382,132 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
         );
   }
 
+  Future<void> _showLoadScheduleDialog(String lang) async {
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          AppLocalizations.tr(lang, 'loadSchedule'),
+          textAlign: TextAlign.center,
+          ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.text_fields_rounded,
+              color: Color.fromARGB(255, 149, 198, 143),
+              size: 24.0,
+              ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: () => Navigator.of(context).pop('paste'),
+                child: Text(
+                  AppLocalizations.tr(lang, 'pasteFromClipboard'),
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.5,
+                  ),
+                  ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            const Icon(
+              Icons.file_open_outlined,
+              color: Color.fromARGB(255, 149, 198, 143),
+              size: 24.0,
+              ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: () => Navigator.of(context).pop('file'),
+                child: Text(
+                  AppLocalizations.tr(lang, 'loadFromFile'),
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(AppLocalizations.tr(lang, 'cancel')),
+          ),
+        ],
+      ),
+    );
+
+    if (!mounted || result == null) return;
+
+    if (result == 'paste') {
+      await _showPasteScheduleDialog(lang);
+    } else if (result == 'file') {
+      await ref.read(appControllerProvider.notifier).loadSchedule();
+    }
+  }
+
+  Future<void> _showPasteScheduleDialog(String lang) async {
+    final scheduleDataController = TextEditingController();
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          AppLocalizations.tr(lang, 'pasteScheduleData'),
+          textAlign: TextAlign.center,
+        ),
+        content: SizedBox(
+          width: MediaQuery.of(context).size.width * 0.5,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: scheduleDataController,
+                decoration: InputDecoration(
+                  labelText: AppLocalizations.tr(lang, 'scheduleData'),
+                  border: const OutlineInputBorder(),
+                  hintText: AppLocalizations.tr(lang, 'pasteScheduleHint'),
+                ),
+                maxLines: 20,
+                minLines: 10,
+              ),
+              const SizedBox(height: 12),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(AppLocalizations.tr(lang, 'cancel')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(AppLocalizations.tr(lang, 'load')),
+          ),
+        ],
+      ),
+    );
+
+    if (!mounted || result != true) return;
+
+    final scheduleData = scheduleDataController.text.trim();
+    if (scheduleData.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(AppLocalizations.tr(lang, 'emptyScheduleData'))),
+      );
+      return;
+    }
+    final controller = ref.read(appControllerProvider.notifier);
+    controller.applySchedule(scheduleData, source: 'ui');
+  }
+
   Future<void> _showFfmpegIssueDialog(FfmpegIssue issue, String lang) async {
     _isFfmpegDialogVisible = true;
     final controller = ref.read(appControllerProvider.notifier);
@@ -626,7 +752,7 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
                 ),
                 IconButton(
                   tooltip: AppLocalizations.tr(lang, 'loadSchedule'),
-                  onPressed: controller.loadSchedule,
+                  onPressed: () => _showLoadScheduleDialog(lang),
                   icon: const Icon(Icons.upload_file),
                 ),
                 IconButton(
@@ -709,9 +835,9 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
                                         value: state.config.selectedGif,
                                         dropdownColor: const Color(0xFF1C1C1E),
                                         style: const TextStyle(color: Colors.white),
-                                        decoration: const InputDecoration(
-                                          labelText: 'Титр',
-                                          border: OutlineInputBorder(),
+                                        decoration: InputDecoration(
+                                          labelText: AppLocalizations.tr(lang, 'labelDropDownTitres'),
+                                          border: const OutlineInputBorder(),
                                           isDense: true,
                                         ),
                                         items: const [
@@ -734,15 +860,15 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
                                         value: effectiveThreadFilter,
                                         dropdownColor: const Color(0xFF1C1C1E),
                                         style: const TextStyle(color: Colors.white),
-                                        decoration: const InputDecoration(
-                                          labelText: 'Поток',
-                                          border: OutlineInputBorder(),
+                                        decoration: InputDecoration(
+                                          labelText: AppLocalizations.tr(lang, 'labelDropDownThread'),
+                                          border: const OutlineInputBorder(),
                                           isDense: true,
                                         ),
                                         items: availableThreads
                                             .map((thread) => DropdownMenuItem(
                                                   value: thread,
-                                                  child: Text('ПОТОК $thread '),
+                                                  child: Row(children: [Text(AppLocalizations.tr(lang, 'labelDropDownThreadList')), const SizedBox(width: 5,),Text('$thread ')],),
                                                 ))
                                             .toList(),
                                         onChanged: (value) {
@@ -761,9 +887,9 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
                                         value: effectiveTypeFilter,
                                         dropdownColor: const Color(0xFF1C1C1E),
                                         style: const TextStyle(color: Colors.white),
-                                        decoration: const InputDecoration(
-                                          labelText: 'Вид',
-                                          border: OutlineInputBorder(),
+                                        decoration: InputDecoration(
+                                          labelText: AppLocalizations.tr(lang, 'labelDropDownRoutines'),
+                                          border: const OutlineInputBorder(),
                                           isDense: true,
                                         ),
                                         items: [
@@ -803,10 +929,10 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
                                   },
                                   isRecordingMarked: state.isRecordingMarked,
                                   languageCode: lang,
-                                  currentThreadTitle: 'ТЕКУЩИЙ ПОТОК',
-                                  nextThreadTitle: 'СЛЕДУЮЩИЙ ПОТОК',
-                                  postponedTitle: 'ОТЛОЖЕННЫЕ',
-                                  nextThreadEmptyLabel: nextThread == null ? 'КОНЕЦ' : null,
+                                  currentThreadTitle: AppLocalizations.tr(lang, 'currentThread'),
+                                  nextThreadTitle: AppLocalizations.tr(lang, 'nextThread'),
+                                  postponedTitle: AppLocalizations.tr(lang, 'postponedParticipants'),
+                                  nextThreadEmptyLabel: nextThread == null ? AppLocalizations.tr(lang, 'endThread') : null,
                                   middleControls: SizedBox(
                                     width: 160,
                                     child: Column(
@@ -838,7 +964,7 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
                                         ),
                                         const SizedBox(height: 8),
                                         _controlButton(
-                                          label: 'ОЧИСТИТЬ',
+                                          label: AppLocalizations.tr(lang, 'clearPostponed'),
                                           onPressed: () => controller.restoreAllPostponed(),
                                         ),
                                       ],
