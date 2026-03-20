@@ -7,6 +7,25 @@ import '../../domain/models/app_config.dart';
 import '../storage/app_paths.dart';
 import 'capture_backend.dart';
 
+class FfmpegStartupException implements Exception {
+  const FfmpegStartupException({
+    required this.message,
+    required this.command,
+    required this.arguments,
+    required this.output,
+    this.exitCode,
+  });
+
+  final String message;
+  final String command;
+  final List<String> arguments;
+  final String output;
+  final int? exitCode;
+
+  @override
+  String toString() => message;
+}
+
 class BufferRecorder {
   BufferRecorder(this._paths, this._backend);
 
@@ -15,6 +34,7 @@ class BufferRecorder {
   Process? _process;
   Timer? _cleanupTimer;
   bool _isStopping = false;
+  static const Duration _startupTimeout = Duration(seconds: 3);
 
   bool get isRunning => _process != null;
 
@@ -64,13 +84,36 @@ class BufferRecorder {
     ];
 
     _isStopping = false;
-    _process = await Process.start(config.ffmpegPath!, args);
+    final startupLogLines = <String>[];
+    void relayLog(String line) {
+      final normalized = line.trimRight();
+      if (normalized.isNotEmpty) {
+        startupLogLines.add(normalized);
+      }
+      onLog(line);
+    }
+
+    try {
+      _process = await Process.start(config.ffmpegPath!, args);
+    } on ProcessException catch (error) {
+      throw FfmpegStartupException(
+        message: 'Unable to start ffmpeg process.',
+        command: config.ffmpegPath!,
+        arguments: args,
+        output: error.toString(),
+      );
+    }
+
     final process = _process!;
-    process.stderr.transform(SystemEncoding().decoder).listen(onLog);
-    process.stdout.transform(SystemEncoding().decoder).listen(onLog);
-    process.exitCode.then((_) {
+    var startupCompleted = false;
+    int? processExitCode;
+
+    process.stderr.transform(SystemEncoding().decoder).listen(relayLog);
+    process.stdout.transform(SystemEncoding().decoder).listen(relayLog);
+    process.exitCode.then((code) {
+      processExitCode = code;
       final isCurrentProcess = identical(_process, process);
-      final isUnexpectedExit = isCurrentProcess && !_isStopping;
+      final isUnexpectedExit = isCurrentProcess && !_isStopping && startupCompleted;
       if (isCurrentProcess) {
         _process = null;
       }
@@ -79,12 +122,68 @@ class BufferRecorder {
       if (isUnexpectedExit) onUnexpectedExit();
     });
 
+    try {
+      await _waitForStartup(
+        segmentsDir: segmentsDir,
+        command: config.ffmpegPath!,
+        arguments: args,
+        startupLogLines: startupLogLines,
+        processExitCode: () => processExitCode,
+      );
+      startupCompleted = true;
+    } catch (_) {
+      if (identical(_process, process)) {
+        _process = null;
+      }
+      rethrow;
+    }
+
     _cleanupTimer?.cancel();
     _cleanupTimer = Timer.periodic(const Duration(seconds: 10), (_) {
       _cleanSegments(segmentsDir, maxAgeMinutes: config.bufferMinutes);
     });
 
     return segmentsDir;
+  }
+
+  Future<void> _waitForStartup({
+    required Directory segmentsDir,
+    required String command,
+    required List<String> arguments,
+    required List<String> startupLogLines,
+    required int? Function() processExitCode,
+  }) async {
+    final deadline = DateTime.now().add(_startupTimeout);
+
+    while (DateTime.now().isBefore(deadline)) {
+      if (await _hasSegmentFiles(segmentsDir)) {
+        return;
+      }
+
+      final exitCode = processExitCode();
+      if (exitCode != null) {
+        throw FfmpegStartupException(
+          message: 'ffmpeg exited before recording could start.',
+          command: command,
+          arguments: arguments,
+          output: startupLogLines.takeLast(120).join('\n'),
+          exitCode: exitCode,
+        );
+      }
+
+      await Future.delayed(const Duration(milliseconds: 100));
+    }
+
+    final exitCode = processExitCode();
+    if (exitCode != null) {
+      throw FfmpegStartupException(
+        message: 'ffmpeg exited before recording could start.',
+        command: command,
+        arguments: arguments,
+        output: startupLogLines.takeLast(120).join('\n'),
+        exitCode: exitCode,
+      );
+    }
   }
 
   List<String> _prependProbeFlagsToInput(List<String> inputArgs) {
@@ -129,5 +228,25 @@ class BufferRecorder {
         await entity.delete();
       }
     }
+  }
+
+  Future<bool> _hasSegmentFiles(Directory dir) async {
+    if (!await dir.exists()) {
+      return false;
+    }
+
+    await for (final entity in dir.list()) {
+      if (entity is File && entity.path.endsWith('.ts')) {
+        return true;
+      }
+    }
+    return false;
+  }
+}
+
+extension<T> on Iterable<T> {
+  Iterable<T> takeLast(int count) {
+    if (length <= count) return this;
+    return skip(length - count);
   }
 }
