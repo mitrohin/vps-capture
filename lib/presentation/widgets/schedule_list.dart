@@ -6,11 +6,11 @@ import '../../localization/app_localizations.dart';
 class ScheduleListEntry {
   const ScheduleListEntry({
     required this.item,
-    required this.filteredIndex,
+    required this.globalIndex,
   });
 
   final ScheduleItem item;
-  final int filteredIndex;
+  final int globalIndex;
 }
 
 class ScheduleList extends StatefulWidget {
@@ -26,6 +26,7 @@ class ScheduleList extends StatefulWidget {
     required this.currentThreadTitle,
     required this.nextThreadTitle,
     required this.postponedTitle,
+    this.nextThreadEmptyLabel,
     required this.isRecordingMarked,
     this.middleControls,
   });
@@ -40,6 +41,7 @@ class ScheduleList extends StatefulWidget {
   final String currentThreadTitle;
   final String nextThreadTitle;
   final String postponedTitle;
+  final String? nextThreadEmptyLabel;
   final bool isRecordingMarked;
   final Widget? middleControls;
 
@@ -84,6 +86,7 @@ class _ScheduleListState extends State<ScheduleList> {
           child: _buildThreadColumn(
             title: widget.currentThreadTitle,
             entries: widget.currentThreadItems,
+            showThreadBadge: false,
           ),
         ),
         const SizedBox(width: 10),
@@ -91,6 +94,8 @@ class _ScheduleListState extends State<ScheduleList> {
           child: _buildThreadColumn(
             title: widget.nextThreadTitle,
             entries: widget.nextThreadItems,
+            showThreadBadge: false,
+            emptyLabel: widget.nextThreadEmptyLabel,
           ),
         ),
         if (widget.middleControls != null) ...[
@@ -102,6 +107,7 @@ class _ScheduleListState extends State<ScheduleList> {
           child: _buildThreadColumn(
             title: widget.postponedTitle,
             entries: widget.postponedItems,
+            showThreadBadge: true,
           ),
         ),
       ],
@@ -111,6 +117,8 @@ class _ScheduleListState extends State<ScheduleList> {
   Widget _buildThreadColumn({
     required String title,
     required List<ScheduleListEntry> entries,
+    required bool showThreadBadge,
+    String? emptyLabel,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -138,22 +146,43 @@ class _ScheduleListState extends State<ScheduleList> {
                 final showDivider = listIndex > 0 && 
                     entries[listIndex - 1].item.typeIndex != entry.item.typeIndex;
                 
-                return _buildListItemWithDivider(entry, showDivider);
+                return _buildListItemWithDivider(
+                  entry,
+                  showDivider,
+                  showThreadBadge: showThreadBadge,
+                );
               },
             ),
           ),
         ),
+        if (entries.isEmpty && emptyLabel != null) ...[
+          const SizedBox(height: 8),
+          Center(
+            child: Text(
+              emptyLabel,
+              style: const TextStyle(
+                color: Colors.white54,
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
       ],
     );
   }
 
-  Widget _buildListItemWithDivider(ScheduleListEntry entry, bool showDivider) {
-    final isSelected = widget.selectedIndex == entry.filteredIndex;
-    final isHovered = _hoveredIndex == entry.filteredIndex;
+  Widget _buildListItemWithDivider(
+    ScheduleListEntry entry,
+    bool showDivider, {
+    required bool showThreadBadge,
+  }) {
+    final isSelected = widget.selectedIndex == entry.globalIndex;
+    final isHovered = _hoveredIndex == entry.globalIndex;
     final canDelete = !(widget.isRecordingMarked && entry.item.status == ScheduleItemStatus.active);
     
     return MouseRegion(
-      onEnter: (_) => setState(() => _hoveredIndex = entry.filteredIndex),
+      onEnter: (_) => setState(() => _hoveredIndex = entry.globalIndex),
       onExit: (_) => setState(() => _hoveredIndex = null),
       child: Container(
         key: isSelected ? _selectedItemKey : null,
@@ -169,7 +198,7 @@ class _ScheduleListState extends State<ScheduleList> {
             ListTile(
               dense: true,
               visualDensity: const VisualDensity(horizontal: -2, vertical: -2),
-              onTap: () => widget.onSelect(entry.filteredIndex),
+              onTap: () => widget.onSelect(entry.globalIndex),
               title: Row(
                 children: [
                   if (entry.item.typeIndex != null)
@@ -190,6 +219,27 @@ class _ScheduleListState extends State<ScheduleList> {
                           fontSize: 10,
                           color: _getTypeColor(entry.item.typeIndex!),
                           fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  if (showThreadBadge && entry.item.threadIndex != null)
+                    Container(
+                      margin: const EdgeInsets.only(right: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.white10,
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(
+                          color: Colors.white24,
+                          width: 1,
+                        ),
+                      ),
+                      child: Text(
+                        'П${entry.item.threadIndex}',
+                        style: const TextStyle(
+                          fontSize: 10,
+                          color: Colors.white70,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
                     ),
@@ -219,7 +269,7 @@ class _ScheduleListState extends State<ScheduleList> {
               trailing: isHovered
                   ? IconButton(
                       tooltip: AppLocalizations.tr(widget.languageCode, 'deleteEntry'),
-                      onPressed: canDelete ? () => widget.onDelete(entry.filteredIndex) : null,
+                      onPressed: canDelete ? () => widget.onDelete(entry.globalIndex) : null,
                       icon: Icon(
                         Icons.close,
                         color: canDelete ? Colors.red : Colors.grey,
