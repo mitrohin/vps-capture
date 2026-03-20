@@ -126,9 +126,12 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
     );
   }
 
-  int? _nextThreadByNumber(List<int> threadOrder, int currentThread) {
-    final nextThread = currentThread + 1;
-    return threadOrder.contains(nextThread) ? nextThread : null;
+  int? _nextVisibleThread(List<int> threadOrder, int currentThread) {
+    final currentIndex = threadOrder.indexOf(currentThread);
+    if (currentIndex == -1 || currentIndex + 1 >= threadOrder.length) {
+      return null;
+    }
+    return threadOrder[currentIndex + 1];
   }
 
   int? _resolveCurrentThread(List<ScheduleItem> filteredItems) {
@@ -136,7 +139,9 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
     if (threadOrder.isEmpty) return null;
 
     final selectedThread = _selectedThreadFilter;
-    if (selectedThread != null && threadOrder.contains(selectedThread)) {
+    if (selectedThread != null &&
+        threadOrder.contains(selectedThread) &&
+        !_isThreadCompleted(filteredItems, selectedThread)) {
       return selectedThread;
     }
 
@@ -363,13 +368,14 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
         ? state.schedule[selectedGlobalIndex]
         : null;
     final threadOrder = _getVisibleThreadOrder(filteredItems).whereType<int>().toList(growable: false);
-    final nextThread = currentThread == null ? null : _nextThreadByNumber(threadOrder, currentThread);
+    final nextThread = currentThread == null ? null : _nextVisibleThread(threadOrder, currentThread);
     final currentThreadItems = _buildThreadEntries(filteredItems, currentThread);
     final nextThreadItems = _buildThreadEntries(filteredItems, nextThread);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || currentThread == null) return;
-      if (_selectedThreadFilter != null && threadOrder.contains(_selectedThreadFilter)) return;
+      if (!mounted || currentThread == null || _selectedThreadFilter == currentThread) {
+        return;
+      }
       setState(() {
         _selectedThreadFilter = currentThread;
       });
