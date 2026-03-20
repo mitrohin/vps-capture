@@ -26,6 +26,15 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Ensure Windows desktop project
+        shell: pwsh
+        run: |
+          if (-not (Test-Path windows)) {
+            flutter create --platforms=windows .
+          } else {
+            Write-Host "Windows desktop project already exists."
+          }
+
       - name: Detect Flutter tests
         id: flutter_tests
         shell: pwsh
