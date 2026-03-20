@@ -26,7 +26,7 @@ class BufferRecorder {
     await stop();
     final segmentsDir = await _paths.segmentsDir();
     await _cleanSegments(segmentsDir, maxAgeMinutes: config.bufferMinutes);
-    final inputArgsWithProbeFlags = _prependInputTuningFlags(_backend.buildInputArgs(config));
+    final inputArgsWithProbeFlags = _prependProbeFlagsToInput(_backend.buildInputArgs(config));
 
     final args = <String>[
       ...inputArgsWithProbeFlags,
@@ -64,7 +64,6 @@ class BufferRecorder {
     ];
 
     _isStopping = false;
-    onLog('Starting FFmpeg buffer recorder: ${config.ffmpegPath} ${args.join(' ')}');
     _process = await Process.start(config.ffmpegPath!, args);
     final process = _process!;
     process.stderr.transform(SystemEncoding().decoder).listen(onLog);
@@ -88,19 +87,16 @@ class BufferRecorder {
     return segmentsDir;
   }
 
-  List<String> _prependInputTuningFlags(List<String> inputArgs) {
-    // `-analyzeduration 0` is too aggressive for many live cameras/capture cards:
-    // FFmpeg can fail stream detection during startup and exit before the first
-    // segment is written. Keep a larger probe window instead of forcing zero.
-    const inputTuningFlags = <String>['-probesize', '32M'];
+  List<String> _prependProbeFlagsToInput(List<String> inputArgs) {
+    const probeFlags = <String>['-analyzeduration', '0', '-probesize', '32M'];
     final inputIndex = inputArgs.indexOf('-i');
     if (inputIndex <= 0) {
-      return [...inputTuningFlags, ...inputArgs];
+      return [...probeFlags, ...inputArgs];
     }
 
     return [
       ...inputArgs.take(inputIndex),
-      ...inputTuningFlags,
+      ...probeFlags,
       ...inputArgs.skip(inputIndex),
     ];
   }

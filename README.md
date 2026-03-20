@@ -24,7 +24,7 @@ Gym Capture is a desktop app for gymnastics competitions. It continuously record
 ## Build troubleshooting (macOS)
 - If `CodeSign failed` references `.../Contents/MacOS/schedule.json`, stale runtime files are still inside the previous build bundle.
 - Before `flutter build macos`, run: `./scripts/macos_prebuild_clean.sh`.
-- The app stores schedule state in the user's application-data folder (for example, macOS: `~/Library/Application Support/gym_capture/schedule.json`, Windows: `%APPDATA%\\gym_capture\\schedule.json`); files near the executable should be treated as read-only.
+- The app now stores schedule state in `~/Library/Application Support/gym_capture/schedule.json`; files inside `.app/Contents/MacOS` should be treated as read-only.
 
 ## Notes
 - Blackmagic DeckLink requires Blackmagic Desktop Video driver.

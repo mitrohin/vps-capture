@@ -286,10 +286,11 @@ class AppController extends StateNotifier<AppState>  {
       final scheduleFileDir = AppPaths.getScheduleStorageDirectory();
       final filePath = p.join(scheduleFileDir, 'schedule.json');
       final file = File(filePath);
-      final legacyFiles = AppPaths.getLegacyScheduleDirectories()
-          .where((dirPath) => p.normalize(dirPath) != p.normalize(scheduleFileDir))
-          .map((dirPath) => File(p.join(dirPath, 'schedule.json')))
-          .toList(growable: false);
+      final legacyFiles = Platform.isMacOS
+          ? AppPaths.getMacOSLegacyScheduleDirectories()
+              .map((dirPath) => File(p.join(dirPath, 'schedule.json')))
+              .toList(growable: false)
+          : <File>[];
 
       File? sourceFile;
       if (await file.exists()) {
@@ -344,7 +345,7 @@ class AppController extends StateNotifier<AppState>  {
         );
         _appendLog('Loaded schedule from file: ${loadedSchedule.length} items.');
       } else {
-        _appendLog('No persisted schedule file yet. Expected path: $filePath');
+        _appendLog('No schedule file found at: $filePath');
       }
     } catch (e) {
       _appendLog('Error loading schedule file: $e');
