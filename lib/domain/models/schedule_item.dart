@@ -7,6 +7,7 @@ class ScheduleItem {
     this.apparatus,
     required this.city,
     this.status = ScheduleItemStatus.pending,
+    this.isPinnedToPostponed = false,
     this.startedAt,
     this.threadIndex,
     this.typeIndex
@@ -17,6 +18,7 @@ class ScheduleItem {
   final String? apparatus;
   final String city;
   final ScheduleItemStatus status;
+  final bool isPinnedToPostponed;
   final DateTime? startedAt;
   final int? threadIndex;
   final int? typeIndex;
@@ -33,6 +35,7 @@ class ScheduleItem {
     String? apparatus,
     String? city,
     ScheduleItemStatus? status,
+    bool? isPinnedToPostponed,
     DateTime? startedAt,
     bool clearStartedAt = false,
     int? threadIndex,
@@ -44,6 +47,7 @@ class ScheduleItem {
       apparatus: apparatus ?? this.apparatus,
       city: city ?? this.city,
       status: status ?? this.status,
+      isPinnedToPostponed: isPinnedToPostponed ?? this.isPinnedToPostponed,
       startedAt: clearStartedAt ? null : (startedAt ?? this.startedAt),
       threadIndex: threadIndex ?? this.threadIndex,
       typeIndex: typeIndex ?? this.typeIndex,
