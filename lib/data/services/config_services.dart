@@ -1,12 +1,8 @@
-import 'dart:convert';
-import 'dart:io';
-import 'package:path/path.dart' as path;
+import 'package:flutter/material.dart';
 
-import '../storage/app_paths.dart';
+import '../../domain/models/gif_title_theme.dart';
 
 class ConfigService {
-  static const String configFileName = 'config.json';
-
   static const Map<String, Map<String, double>> defaultTextPositions = {
     'blue': {
       'fioLeft': 0.19,
@@ -34,30 +30,88 @@ class ConfigService {
     },
   };
 
-  Map<String, Map<String, double>> textPositions = {
-    for (final entry in defaultTextPositions.entries)
-      entry.key: Map<String, double>.from(entry.value),
+  static final Map<String, GifTitleTheme> defaultTitleThemes = {
+    'blue': GifTitleTheme(
+      fioLeft: defaultTextPositions['blue']!['fioLeft']!,
+      fioBottom: defaultTextPositions['blue']!['fioBottom']!,
+      cityLeft: defaultTextPositions['blue']!['cityLeft']!,
+      cityBottom: defaultTextPositions['blue']!['cityBottom']!,
+      fioFontScale: 0.15,
+      cityFontScale: 0.1,
+      fioColor: Colors.white,
+      cityColor: Colors.white,
+    ),
+    'red': GifTitleTheme(
+      fioLeft: defaultTextPositions['red']!['fioLeft']!,
+      fioBottom: defaultTextPositions['red']!['fioBottom']!,
+      cityLeft: defaultTextPositions['red']!['cityLeft']!,
+      cityBottom: defaultTextPositions['red']!['cityBottom']!,
+      fioFontScale: 0.15,
+      cityFontScale: 0.1,
+      fioColor: Colors.white,
+      cityColor: Colors.black,
+    ),
+    'fitness': GifTitleTheme(
+      fioLeft: defaultTextPositions['fitness']!['fioLeft']!,
+      fioBottom: defaultTextPositions['fitness']!['fioBottom']!,
+      cityLeft: defaultTextPositions['fitness']!['cityLeft']!,
+      cityBottom: defaultTextPositions['fitness']!['cityBottom']!,
+      fioFontScale: 0.15,
+      cityFontScale: 0.1,
+      fioColor: Colors.white,
+      cityColor: Colors.white,
+    ),
+    'lenta': GifTitleTheme(
+      fioLeft: defaultTextPositions['lenta']!['fioLeft']!,
+      fioBottom: defaultTextPositions['lenta']!['fioBottom']!,
+      cityLeft: defaultTextPositions['lenta']!['cityLeft']!,
+      cityBottom: defaultTextPositions['lenta']!['cityBottom']!,
+      fioFontScale: 0.15,
+      cityFontScale: 0.1,
+      fioColor: Colors.white,
+      cityColor: Colors.white,
+    ),
   };
 
-  Future<void> loadConfig() async {
-    final configPath = AppPaths.getScheduleStorageDirectory();
-    final configFile = File(path.join(configPath, configFileName));
-    if (!await configFile.exists()) return;
-
-    final contents = await configFile.readAsString();
-    final jsonConfig = jsonDecode(contents) as Map<String, dynamic>;
-    if (jsonConfig['textPositions'] == null) return;
-
-    final positionsJson = jsonConfig['textPositions'] as Map;
-    final loaded = {
-      for (final entry in defaultTextPositions.entries)
-        entry.key: Map<String, double>.from(entry.value),
+  static Map<String, GifTitleTheme> copyDefaultTitleThemes() {
+    return {
+      for (final entry in defaultTitleThemes.entries)
+        entry.key: entry.value.copyWith(),
     };
-    positionsJson.forEach((key, value) {
-      if (value is Map) {
-        loaded[key.toString()] = Map<String, double>.from(value);
+  }
+
+  static Map<String, GifTitleTheme> decodeTitleThemes(Object? rawValue) {
+    final decoded = copyDefaultTitleThemes();
+    if (rawValue is! Map) {
+      return decoded;
+    }
+
+    rawValue.forEach((key, value) {
+      final gifKey = key.toString();
+      final fallback = decoded[gifKey] ?? defaultTitleThemes['blue']!;
+      if (value is! Map) {
+        decoded[gifKey] = fallback;
+        return;
       }
+
+      decoded[gifKey] = GifTitleTheme(
+        fioLeft: (value['fioLeft'] as num?)?.toDouble() ?? fallback.fioLeft,
+        fioBottom: (value['fioBottom'] as num?)?.toDouble() ?? fallback.fioBottom,
+        cityLeft: (value['cityLeft'] as num?)?.toDouble() ?? fallback.cityLeft,
+        cityBottom: (value['cityBottom'] as num?)?.toDouble() ?? fallback.cityBottom,
+        fioFontScale: (value['fioFontScale'] as num?)?.toDouble() ?? fallback.fioFontScale,
+        cityFontScale: (value['cityFontScale'] as num?)?.toDouble() ?? fallback.cityFontScale,
+        fioColor: GifTitleTheme.colorFromValue(value['fioColor'], fallback.fioColor),
+        cityColor: GifTitleTheme.colorFromValue(value['cityColor'], fallback.cityColor),
+      );
     });
-    textPositions = loaded;
+
+    return decoded;
+  }
+
+  static Map<String, dynamic> encodeTitleThemes(Map<String, GifTitleTheme> themes) {
+    return {
+      for (final entry in themes.entries) entry.key: entry.value.toJson(),
+    };
   }
 }

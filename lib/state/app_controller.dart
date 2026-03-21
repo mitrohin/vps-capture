@@ -22,6 +22,7 @@ import '../data/ffmpeg/ffmpeg_installer.dart';
 import '../data/ffmpeg/ffmpeg_locator.dart';
 import '../data/schedule/schedule_decoder.dart';
 import '../data/schedule/schedule_parser.dart';
+import '../data/services/config_services.dart';
 import '../data/storage/app_paths.dart';
 import '../data/storage/file_namer.dart';
 import '../data/web/judge_web_server.dart';
@@ -29,6 +30,7 @@ import '../data/web/recorded_clip_index.dart';
 import '../domain/models/app_config.dart';
 import '../domain/models/capture_device.dart';
 import '../domain/models/ffmpeg_issue.dart';
+import '../domain/models/gif_title_theme.dart';
 import '../domain/models/judge_web_server_status.dart';
 import '../domain/models/schedule_item.dart';
 import 'app_state.dart';
@@ -53,7 +55,7 @@ final appControllerProvider = StateNotifierProvider<AppController, AppState>((re
 });
 
 class AppController extends StateNotifier<AppState> {
-  static const String currentAppVersion = '2.1.1';
+  static const String currentAppVersion = '2.2.4';
 
   AppController(
     this._locator,
@@ -185,6 +187,7 @@ class AppController extends StateNotifier<AppState> {
     await prefs.setInt('preRollSeconds', config.preRollSeconds);
     await prefs.setString('languageCode', config.languageCode);
     await prefs.setString('selectedGif', config.selectedGif ?? 'blue');
+    await prefs.setString('gifTitleThemes', jsonEncode(ConfigService.encodeTitleThemes(config.resolvedGifTitleThemes)));
     await prefs.setString('version', config.version);
     await prefs.setInt('webServerPort', config.webServerPort);
   }
@@ -319,6 +322,27 @@ class AppController extends StateNotifier<AppState> {
 
   Future<void> setSelectedGif(String selectedGif) async {
     await updateConfig(state.config.copyWith(selectedGif: selectedGif));
+  }
+
+  Future<void> updateGifTitleTheme(String gifKey, GifTitleTheme Function(GifTitleTheme theme) update) async {
+    final currentThemes = state.config.resolvedGifTitleThemes;
+    final currentTheme = currentThemes[gifKey] ?? ConfigService.defaultTitleThemes[gifKey] ?? ConfigService.defaultTitleThemes['blue']!;
+    final updatedThemes = {
+      for (final entry in currentThemes.entries) entry.key: entry.value.copyWith(),
+    };
+    updatedThemes[gifKey] = update(currentTheme);
+    updateConfigDebounced(state.config.copyWith(gifTitleThemes: updatedThemes));
+  }
+
+  Future<void> resetGifTitleTheme(String gifKey) async {
+    final updatedThemes = {
+      for (final entry in state.config.resolvedGifTitleThemes.entries) entry.key: entry.value.copyWith(),
+    };
+    final fallback = ConfigService.defaultTitleThemes[gifKey];
+    if (fallback != null) {
+      updatedThemes[gifKey] = fallback.copyWith();
+      await updateConfig(state.config.copyWith(gifTitleThemes: updatedThemes));
+    }
   }
 
   Future<void> loadSchedule() async {
@@ -1050,6 +1074,7 @@ class AppController extends StateNotifier<AppState> {
       preRollSeconds: prefs.getInt('preRollSeconds') ?? defaultConfig.preRollSeconds,
       languageCode: _stringOrNull(prefs.getString('languageCode')) ?? defaultConfig.languageCode,
       selectedGif: prefs.getString('selectedGif') ?? defaultConfig.selectedGif,
+      gifTitleThemes: ConfigService.decodeTitleThemes(_decodeJsonMap(prefs.getString('gifTitleThemes'))),
       version: currentAppVersion,
       webServerPort: prefs.getInt('webServerPort') ?? defaultConfig.webServerPort,
     );
@@ -1061,6 +1086,7 @@ class AppController extends StateNotifier<AppState> {
       ffplayPath: located.ffplayPath,
       codec: Platform.isMacOS ? 'h264_videotoolbox' : 'libx264',
       selectedGif: 'blue',
+      gifTitleThemes: ConfigService.copyDefaultTitleThemes(),
       version: currentAppVersion,
       webServerPort: 38117,
     );
@@ -1107,6 +1133,18 @@ class AppController extends StateNotifier<AppState> {
     if (value == null || value.trim().isEmpty) return null;
     return value;
   }
+
+  Map<String, dynamic>? _decodeJsonMap(String? value) {
+    final raw = _stringOrNull(value);
+    if (raw == null) return null;
+    try {
+      final decoded = jsonDecode(raw);
+      return decoded is Map<String, dynamic> ? decoded : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
   CaptureSourceKind? _readSource(String? value) {
     if (value == null || value.isEmpty) return null;
     return CaptureSourceKind.values.where((e) => e.name == value).firstOrNull;
