@@ -82,7 +82,7 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final state = ref.watch(appControllerProvider);
     final controller = ref.read(appControllerProvider.notifier);
     final cfg = state.config;
