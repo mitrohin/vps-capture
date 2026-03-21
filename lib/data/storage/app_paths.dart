@@ -5,6 +5,12 @@ import 'package:path_provider/path_provider.dart';
 
 class AppPaths {
   Future<Directory> appSupportDir() async {
+    if (Platform.isWindows) {
+      final dir = Directory(p.join(getExecutableDirectory(), 'gym_capture_data'));
+      if (!await dir.exists()) await dir.create(recursive: true);
+      return dir;
+    }
+
     final base = await getApplicationSupportDirectory();
     final dir = Directory(p.join(base.path, 'gym_capture'));
     if (!await dir.exists()) await dir.create(recursive: true);

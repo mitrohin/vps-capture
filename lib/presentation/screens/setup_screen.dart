@@ -10,8 +10,19 @@ import '../../state/app_controller.dart';
 import '../widgets/judge_server_status.dart';
 import '../widgets/log_panel.dart';
 
-class SetupScreen extends ConsumerWidget {
+class SetupScreen extends ConsumerStatefulWidget {
   const SetupScreen({super.key});
+
+  @override
+  ConsumerState<SetupScreen> createState() => _SetupScreenState();
+}
+
+class _SetupScreenState extends ConsumerState<SetupScreen> {
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(() => ref.read(appControllerProvider.notifier).prepareSetupScreen());
+  }
 
   Future<void> _confirmFullReset(
     BuildContext context,
@@ -42,6 +53,34 @@ class SetupScreen extends ConsumerWidget {
     }
   }
 
+  Future<void> _confirmAutomaticInstall(
+    BuildContext context,
+    WidgetRef ref,
+    String languageCode,
+  ) async {
+    final shouldInstall = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(AppLocalizations.tr(languageCode, 'installAutomaticallyQuestionTitle')),
+        content: Text(AppLocalizations.tr(languageCode, 'installAutomaticallyQuestionMessage')),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(AppLocalizations.tr(languageCode, 'cancel')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(AppLocalizations.tr(languageCode, 'installAutomatically')),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldInstall == true && context.mounted) {
+      await ref.read(appControllerProvider.notifier).installFfmpeg();
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(appControllerProvider);
@@ -63,6 +102,12 @@ class SetupScreen extends ConsumerWidget {
     final audioDevices = state.devices.where((d) => d.type == DeviceType.audio).toList();
     final selectedVideoValue = _resolveSelectedDevice(cfg.selectedVideoDevice, videoDevices);
     final selectedAudioValue = _resolveSelectedDevice(cfg.selectedAudioDevice, audioDevices);
+
+    final subtleActionStyle = OutlinedButton.styleFrom(
+      foregroundColor: Colors.grey.shade700,
+      side: BorderSide(color: Colors.grey.shade400),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+    );
 
     return Scaffold(
       appBar: AppBar(
@@ -116,10 +161,6 @@ class SetupScreen extends ConsumerWidget {
               ],
             ),
             Wrap(spacing: 12, runSpacing: 8, children: [
-              FilledButton(
-                onPressed: state.isLoading ? null : controller.installFfmpeg,
-                child: Text(AppLocalizations.tr(lang, 'installAutomatically')),
-              ),
               OutlinedButton(
                 onPressed: () async {
                   final path = await FilePicker.platform.pickFiles(dialogTitle: 'Pick ffmpeg binary').then((v) => v?.files.single.path);
@@ -128,6 +169,15 @@ class SetupScreen extends ConsumerWidget {
                   }
                 },
                 child: Text(AppLocalizations.tr(lang, 'pickFfmpeg')),
+              ),
+              OutlinedButton(
+                onPressed: () async {
+                  final path = await FilePicker.platform.getDirectoryPath(dialogTitle: 'Select output folder');
+                  if (path != null) {
+                    await controller.updateConfig(cfg.copyWith(outputDir: path));
+                  }
+                },
+                child: Text(AppLocalizations.tr(lang, 'chooseOutputFolder')),
               ),
               OutlinedButton(
                 onPressed: () async {
@@ -143,18 +193,7 @@ class SetupScreen extends ConsumerWidget {
             Text('ffmpeg: ${cfg.ffmpegPath ?? AppLocalizations.tr(lang, 'notSelected')}'),
             Text('ffplay: ${cfg.ffplayPath ?? AppLocalizations.tr(lang, 'notSelected')}'),
             const SizedBox(height: 8),
-            Row(children: [
-              Expanded(child: Text('${AppLocalizations.tr(lang, 'outputFolder')}: ${cfg.outputDir ?? AppLocalizations.tr(lang, 'notSelected')}')),
-              OutlinedButton(
-                onPressed: () async {
-                  final path = await FilePicker.platform.getDirectoryPath(dialogTitle: 'Select output folder');
-                  if (path != null) {
-                    await controller.updateConfig(cfg.copyWith(outputDir: path));
-                  }
-                },
-                child: Text(AppLocalizations.tr(lang, 'chooseOutputFolder')),
-              ),
-            ]),
+            Text('${AppLocalizations.tr(lang, 'outputFolder')}: ${cfg.outputDir ?? AppLocalizations.tr(lang, 'notSelected')}'),
             const SizedBox(height: 8),
             Row(
               children: [
@@ -411,13 +450,43 @@ class SetupScreen extends ConsumerWidget {
               child: Text(AppLocalizations.tr(lang, 'continueToWork')),
             ),
             const SizedBox(height: 12),
-            OutlinedButton.icon(
-              style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
-              onPressed: state.isLoading
-                  ? null
-                  : () => _confirmFullReset(context, ref, lang),
-              icon: const Icon(Icons.warning_amber_rounded),
-              label: Text(AppLocalizations.tr(lang, 'fullResetSettings')),
+            Wrap(
+              spacing: 12,
+              runSpacing: 8,
+              children: [
+                OutlinedButton.icon(
+                  style: subtleActionStyle,
+                  onPressed: state.isLoading
+                      ? null
+                      : () => _confirmAutomaticInstall(context, ref, lang),
+                  icon: const Icon(Icons.download_rounded),
+                  label: Text(AppLocalizations.tr(lang, 'installAutomatically')),
+                ),
+                OutlinedButton.icon(
+                  style: subtleActionStyle,
+                  onPressed: (state.isLoading || cfg.ffplayPath == null || cfg.ffmpegPath == null || cfg.sourceKind == null)
+                      ? null
+                      : controller.togglePreview,
+                  icon: Icon(state.isPreviewRunning ? Icons.visibility_off_outlined : Icons.visibility_outlined),
+                  label: Text(
+                    AppLocalizations.tr(
+                      lang,
+                      state.isPreviewRunning ? 'stopPreview' : 'startPreview',
+                    ),
+                  ),
+                ),
+                OutlinedButton.icon(
+                  style: subtleActionStyle.copyWith(
+                    foregroundColor: WidgetStatePropertyAll(Colors.red.shade400),
+                    side: WidgetStatePropertyAll(BorderSide(color: Colors.red.shade200)),
+                  ),
+                  onPressed: state.isLoading
+                      ? null
+                      : () => _confirmFullReset(context, ref, lang),
+                  icon: const Icon(Icons.warning_amber_rounded),
+                  label: Text(AppLocalizations.tr(lang, 'fullResetSettings')),
+                ),
+              ],
             ),
             const SizedBox(height: 12),
             Expanded(child: LogPanel(logs: state.logs)),
