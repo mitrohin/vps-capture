@@ -871,6 +871,16 @@ class AppController extends StateNotifier<AppState>  {
     participants.sort((left, right) {
       final statusCompare = _judgeStatusWeight(left.status).compareTo(_judgeStatusWeight(right.status));
       if (statusCompare != 0) return statusCompare;
+
+      final leftStartedAt = left.startedAt;
+      final rightStartedAt = right.startedAt;
+      if (leftStartedAt != null && rightStartedAt != null) {
+        final startedAtCompare = rightStartedAt.compareTo(leftStartedAt);
+        if (startedAtCompare != 0) return startedAtCompare;
+      } else if (leftStartedAt != null || rightStartedAt != null) {
+        return leftStartedAt != null ? -1 : 1;
+      }
+
       final threadCompare = (left.threadIndex ?? 1 << 20).compareTo(right.threadIndex ?? 1 << 20);
       if (threadCompare != 0) return threadCompare;
       final typeCompare = (left.typeIndex ?? 1 << 20).compareTo(right.typeIndex ?? 1 << 20);
