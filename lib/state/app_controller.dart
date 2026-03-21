@@ -111,6 +111,13 @@ class AppController extends StateNotifier<AppState>  {
     });
   }
 
+  Future<void> prepareSetupScreen() async {
+    if (state.isLoading) return;
+    final cfg = state.config;
+    if (cfg.ffmpegPath == null || cfg.sourceKind == null) return;
+    await detectDevices();
+  }
+
   Future<void> detectDevices() async {
     final cfg = state.config;
     if (cfg.ffmpegPath == null || cfg.sourceKind == null) return;
@@ -456,6 +463,7 @@ class AppController extends StateNotifier<AppState>  {
       clearMarkStart: true,
       judgeWebServerStatus: const JudgeWebServerStatus(),
     );
+    await prepareSetupScreen();
   }
 
   Future<void> startMark([int? index]) async {
