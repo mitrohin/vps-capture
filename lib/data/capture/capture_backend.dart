@@ -20,9 +20,40 @@ class CaptureBackend {
         final input = audioDevice.audioId == null
             ? 'video=${videoDevice.id}'
             : 'video=${videoDevice.id}:audio=${audioDevice.audioId}';
-        return ['-f', 'dshow', '-i', input];
+        return ['-f', 'dshow', '-framerate', '${config.fps}', '-i', input];
       case CaptureSourceKind.deckLink:
         return ['-f', 'decklink', '-i', videoDevice.name];
     }
+  }
+
+  List<String> buildOutputVideoArgs(AppConfig config) {
+    final codec = config.codec ?? 'libx264';
+
+    return [
+      '-map',
+      '0:v:0',
+      '-map',
+      '0:a:0?',
+      '-c:v',
+      codec,
+      '-vsync',
+      'cfr',
+      '-r',
+      '${config.fps}',
+      if (codec == 'libx264') ...[
+        '-preset',
+        config.ffmpegPreset,
+        '-tune',
+        'zerolatency',
+        '-pix_fmt',
+        'yuv420p',
+      ],
+      '-b:v',
+      config.videoBitrate,
+      '-c:a',
+      'aac',
+      '-b:a',
+      config.audioBitrate,
+    ];
   }
 }
