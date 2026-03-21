@@ -24,11 +24,12 @@ class JudgeWebServer {
 
     try {
       _server = await HttpServer.bind(InternetAddress.anyIPv4, port, shared: false);
+      final boundPort = _server!.port;
       unawaited(_listen(_server!));
       return JudgeWebServerStatus(
         isRunning: true,
-        port: port,
-        urls: await _buildUrls(port),
+        port: boundPort,
+        urls: await _buildUrls(boundPort),
       );
     } catch (error) {
       return JudgeWebServerStatus(
@@ -101,15 +102,14 @@ class JudgeWebServer {
 
   Future<void> _openEventsStream(HttpResponse response) async {
     response.statusCode = HttpStatus.ok;
-    response.encoding = utf8;
     response.headers
       ..set(HttpHeaders.contentTypeHeader, 'text/event-stream; charset=utf-8')
       ..set(HttpHeaders.cacheControlHeader, 'no-cache')
       ..set(HttpHeaders.connectionHeader, 'keep-alive')
       ..set('Access-Control-Allow-Origin', '*');
     _eventClients.add(response);
-    response.write('retry: 1500\n');
-    response.write('data: ${jsonEncode(_snapshot.toJson())}\n\n');
+    response.add(utf8.encode('retry: 1500\n'));
+    response.add(utf8.encode('data: ${jsonEncode(_snapshot.toJson())}\n\n'));
     await response.flush();
     response.done.whenComplete(() {
       _eventClients.remove(response);
