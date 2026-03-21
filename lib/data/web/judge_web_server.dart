@@ -295,6 +295,7 @@ class JudgeWebServer {
   </dialog>
 
   <script>
+    const POLL_INTERVAL_MS = 3000;
     const state = { snapshot: null, search: '', status: 'done', thread: 'all' };
     const summary = document.getElementById('summary');
     const cards = document.getElementById('cards');
@@ -309,6 +310,9 @@ class JudgeWebServer {
     const lastUpdated = document.getElementById('last-updated');
     const pageTitle = document.getElementById('page-title');
     const autoRefreshHint = document.getElementById('auto-refresh-hint');
+    let refreshTimer = null;
+    let eventsSource = null;
+    let refreshInFlight = null;
 
     search.addEventListener('input', () => { state.search = search.value.trim().toLowerCase(); render(); });
     statusFilter.addEventListener('change', () => { state.status = statusFilter.value; render(); });
@@ -324,15 +328,60 @@ class JudgeWebServer {
       if (dialog.open) dialog.close();
     }
 
-    async function bootstrap() {
-      const response = await fetch('/api/state', { cache: 'no-store' });
-      state.snapshot = await response.json();
-      render();
-      const source = new EventSource('/events');
-      source.onmessage = (event) => {
+    async function refreshSnapshot() {
+      if (refreshInFlight) return refreshInFlight;
+
+      refreshInFlight = fetch('/api/state', { cache: 'no-store' })
+        .then((response) => response.json())
+        .then((snapshot) => {
+          state.snapshot = snapshot;
+          render();
+          return snapshot;
+        })
+        .catch((error) => {
+          console.error('Judge page refresh failed', error);
+          throw error;
+        })
+        .finally(() => {
+          refreshInFlight = null;
+        });
+
+      return refreshInFlight;
+    }
+
+    function schedulePolling() {
+      if (refreshTimer) clearInterval(refreshTimer);
+      refreshTimer = setInterval(() => {
+        refreshSnapshot().catch(() => {});
+      }, POLL_INTERVAL_MS);
+    }
+
+    function bindEvents() {
+      if (eventsSource) eventsSource.close();
+      eventsSource = new EventSource('/events');
+      eventsSource.onmessage = (event) => {
         state.snapshot = JSON.parse(event.data);
         render();
       };
+      eventsSource.onerror = () => {
+        refreshSnapshot().catch(() => {});
+      };
+    }
+
+    async function bootstrap() {
+      await refreshSnapshot();
+      bindEvents();
+      schedulePolling();
+    }
+
+    function compareParticipantsByDateDesc(left, right) {
+      const leftTime = left.startedAt ? Date.parse(left.startedAt) : NaN;
+      const rightTime = right.startedAt ? Date.parse(right.startedAt) : NaN;
+      const leftHasTime = Number.isFinite(leftTime);
+      const rightHasTime = Number.isFinite(rightTime);
+      if (leftHasTime && rightHasTime && leftTime !== rightTime) return rightTime - leftTime;
+      if (leftHasTime !== rightHasTime) return leftHasTime ? -1 : 1;
+      return 0;
     }
 
     function render() {
@@ -368,13 +417,16 @@ class JudgeWebServer {
         [t.judgeStatReplays, snapshot.stats.withReplay],
       ].map(([label, value]) => `<div class="stat"><span>${escapeHtml(label)}</span><strong>${value}</strong></div>`).join('');
 
-      const visible = snapshot.participants.filter((participant) => {
-        if (state.status !== 'all' && participant.status !== state.status) return false;
-        if (state.thread !== 'all' && String(participant.threadIndex ?? '') !== state.thread) return false;
-        if (!state.search) return true;
-        const haystack = `${participant.fio} ${participant.city} ${participant.apparatus ?? ''}`.toLowerCase();
-        return haystack.includes(state.search);
-      });
+      const visible = snapshot.participants
+        .filter((participant) => {
+          if (state.status !== 'all' && participant.status !== state.status) return false;
+          if (state.thread !== 'all' && String(participant.threadIndex ?? '') !== state.thread) return false;
+          if (!state.search) return true;
+          const haystack = `${participant.fio} ${participant.city} ${participant.apparatus ?? ''}`.toLowerCase();
+          return haystack.includes(state.search);
+        })
+        .slice()
+        .sort(compareParticipantsByDateDesc);
 
       if (!visible.length) {
         cards.innerHTML = `<div class="empty">${escapeHtml(t.judgeEmpty)}</div>`;
