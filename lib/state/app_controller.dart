@@ -51,7 +51,7 @@ final appControllerProvider = StateNotifierProvider<AppController, AppState>((re
   )..initialize();
 });
 
-class AppController extends StateNotifier<AppState>  {
+class AppController extends StateNotifier<AppState> {
   static const String currentAppVersion = '1.0.1';
 
   AppController(
@@ -77,6 +77,7 @@ class AppController extends StateNotifier<AppState>  {
   final RecordedClipIndex _clipIndex;
   final JudgeWebServer _judgeWebServer;
   Timer? _configWriteDebounceTimer;
+  Future<void>? _shutdownFuture;
 
   SharedPreferences? _prefs;
 
@@ -140,7 +141,7 @@ class AppController extends StateNotifier<AppState>  {
           selectedVideoDevice: selectedVideo,
           selectedAudioDevice: selectedAudio,
           clearVideoDevice: selectedVideo == null,
-          clearAudioDevice: selectedAudio == null
+          clearAudioDevice: selectedAudio == null,
         ),
       );
       _appendLog('Found ${devices.length} devices.');
@@ -219,11 +220,30 @@ class AppController extends StateNotifier<AppState>  {
 
   @override
   void dispose() {
-    _configWriteDebounceTimer?.cancel();
-    unawaited(_judgeWebServer.stop());
+    unawaited(shutdown());
     super.dispose();
   }
 
+  Future<void> shutdown() {
+    final inFlightShutdown = _shutdownFuture;
+    if (inFlightShutdown != null) {
+      return inFlightShutdown;
+    }
+
+    final shutdownFuture = _shutdownInternal();
+    _shutdownFuture = shutdownFuture;
+    return shutdownFuture;
+  }
+
+  Future<void> _shutdownInternal() async {
+    _configWriteDebounceTimer?.cancel();
+    _configWriteDebounceTimer = null;
+
+    await _capture.stopBuffer();
+    await _preview.stop();
+    await _testRecorder.stop(state.config, _appendLog);
+    await _judgeWebServer.stop();
+  }
 
   Future<void> setLanguage(String languageCode) async {
     await updateConfig(state.config.copyWith(languageCode: languageCode));
