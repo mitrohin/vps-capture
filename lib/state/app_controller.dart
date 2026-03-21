@@ -23,6 +23,7 @@ import '../data/ffmpeg/ffmpeg_locator.dart';
 import '../data/schedule/schedule_decoder.dart';
 import '../data/schedule/schedule_parser.dart';
 import '../data/storage/app_paths.dart';
+import '../data/storage/file_namer.dart';
 import '../data/web/judge_web_server.dart';
 import '../data/web/recorded_clip_index.dart';
 import '../domain/models/app_config.dart';
@@ -349,39 +350,43 @@ class AppController extends StateNotifier<AppState> {
   }
 
   void createStructOutputDir(String content, String mainOutputDir, List scheduleList) {
-    try{
-        final lines = content.split(RegExp(r'\r?\n'));
-        int currentThreadIndex = 0;
-        int currentTypeCount = 1;
+    try {
+      final lines = content.split(RegExp(r'\r?\n'));
+      int currentThreadIndex = 0;
+      int currentTypeCount = 1;
 
-        for (var i = 0; i < lines.length; i++){
-          final line = lines[i].trim();
-          if (line.isEmpty) continue;
-          if (line.startsWith('/*')) {
-            currentThreadIndex++;
-            final threadPath = p.join(mainOutputDir,'0$currentThreadIndex - ${line.substring(line.indexOf(' ')+1).replaceAll(':', '-')}');
-            final dirThread = Directory(threadPath);
-            if (!dirThread.existsSync()) {
-              dirThread.createSync(recursive: true);
-            }
-            try { 
-              final splittedTypeCount = line.split(' ')[0];
-              currentTypeCount = int.parse(splittedTypeCount.substring(2));
-            }
-            catch (e) {
-              currentTypeCount = 1;
-            }
-            if (currentTypeCount > 0) {
-              for (int type = 0; type < currentTypeCount; type++) {
-                final typePath = p.join(threadPath, '0${type+1}');
-                final dirType = Directory(typePath);
-                if (!dirType.existsSync()) {
-                  dirType.createSync(recursive: true);
-                }
+      for (var i = 0; i < lines.length; i++) {
+        final line = lines[i].trim();
+        if (line.isEmpty) continue;
+        if (line.startsWith('/*')) {
+          currentThreadIndex++;
+          final rawThreadName = line.substring(line.indexOf(' ') + 1);
+          final safeThreadName = FileNamer.sanitizeSegment(rawThreadName);
+          final threadPath = p.join(
+            mainOutputDir,
+            '0$currentThreadIndex - $safeThreadName',
+          );
+          final dirThread = Directory(threadPath);
+          if (!dirThread.existsSync()) {
+            dirThread.createSync(recursive: true);
+          }
+          try {
+            final splittedTypeCount = line.split(' ')[0];
+            currentTypeCount = int.parse(splittedTypeCount.substring(2));
+          } catch (e) {
+            currentTypeCount = 1;
+          }
+          if (currentTypeCount > 0) {
+            for (int type = 0; type < currentTypeCount; type++) {
+              final typePath = p.join(threadPath, '0${type + 1}');
+              final dirType = Directory(typePath);
+              if (!dirType.existsSync()) {
+                dirType.createSync(recursive: true);
               }
             }
           }
         }
+      }
     } catch (e) {}
   }
 
