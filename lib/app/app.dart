@@ -15,6 +15,7 @@ class GymCaptureApp extends ConsumerStatefulWidget {
 
 class _GymCaptureAppState extends ConsumerState<GymCaptureApp> with WindowListener {
   bool _isClosing = false;
+  bool _allowWindowClose = false;
 
   @override
   void initState() {
@@ -33,6 +34,10 @@ class _GymCaptureAppState extends ConsumerState<GymCaptureApp> with WindowListen
 
   @override
   Future<void> onWindowClose() async {
+    if (_allowWindowClose) {
+      return;
+    }
+
     if (_isClosing) {
       return;
     }
@@ -40,7 +45,9 @@ class _GymCaptureAppState extends ConsumerState<GymCaptureApp> with WindowListen
     _isClosing = true;
     try {
       await ref.read(appControllerProvider.notifier).shutdown();
-      await windowManager.destroy();
+      _allowWindowClose = true;
+      await windowManager.setPreventClose(false);
+      await windowManager.close();
     } finally {
       _isClosing = false;
     }
