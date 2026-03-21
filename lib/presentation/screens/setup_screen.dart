@@ -481,6 +481,24 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
                   ),
                 ),
                 OutlinedButton.icon(
+                  style: subtleActionStyle,
+                  onPressed: (state.isLoading ||
+                          cfg.ffmpegPath == null ||
+                          cfg.outputDir == null ||
+                          cfg.sourceKind == null ||
+                          cfg.selectedVideoDevice == null ||
+                          cfg.selectedAudioDevice == null)
+                      ? null
+                      : controller.toggleTestRecording,
+                  icon: Icon(state.isTestRecording ? Icons.stop_circle_outlined : Icons.fiber_manual_record_rounded),
+                  label: Text(
+                    AppLocalizations.tr(
+                      lang,
+                      state.isTestRecording ? 'stopTestRecording' : 'startTestRecording',
+                    ),
+                  ),
+                ),
+                OutlinedButton.icon(
                   style: subtleActionStyle.copyWith(
                     foregroundColor: WidgetStatePropertyAll(Colors.red.shade400),
                     side: WidgetStatePropertyAll(BorderSide(color: Colors.red.shade200)),
