@@ -87,20 +87,23 @@ class JudgeWebServer {
 
   Future<void> _writeHtml(HttpResponse response) async {
     response.headers.contentType = ContentType.html;
+    response.encoding = utf8;
     response.write(_htmlDocument());
     await response.close();
   }
 
   Future<void> _writeJson(HttpResponse response, Map<String, dynamic> data) async {
     response.headers.contentType = ContentType.json;
+    response.encoding = utf8;
     response.write(jsonEncode(data));
     await response.close();
   }
 
   Future<void> _openEventsStream(HttpResponse response) async {
     response.statusCode = HttpStatus.ok;
+    response.encoding = utf8;
     response.headers
-      ..set(HttpHeaders.contentTypeHeader, 'text/event-stream')
+      ..set(HttpHeaders.contentTypeHeader, 'text/event-stream; charset=utf-8')
       ..set(HttpHeaders.cacheControlHeader, 'no-cache')
       ..set(HttpHeaders.connectionHeader, 'keep-alive')
       ..set('Access-Control-Allow-Origin', '*');
@@ -183,6 +186,7 @@ class JudgeWebServer {
 
   Future<void> _writeNotFound(HttpResponse response) async {
     response.statusCode = HttpStatus.notFound;
+    response.encoding = utf8;
     response.write('Not found');
     await response.close();
   }
