@@ -5,7 +5,6 @@ import '../../data/services/config_services.dart';
 import '../../domain/models/gif_title_theme.dart';
 import '../../localization/app_localizations.dart';
 import '../../state/app_controller.dart';
-import 'gif_titres.dart';
 
 class GifTitleSettingsDialog extends ConsumerStatefulWidget {
   const GifTitleSettingsDialog({
@@ -112,141 +111,217 @@ class _GifTitleSettingsDialogState extends ConsumerState<GifTitleSettingsDialog>
       ),
     );
 
-    return AlertDialog(
-      title: Text(AppLocalizations.tr(lang, 'gifTitleSettingsTitle')),
-      content: SizedBox(
-        width: 980,
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                AppLocalizations.tr(lang, 'gifTitleSettingsHint'),
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<String>(
-                value: _selectedGifKey,
-                decoration: InputDecoration(
-                  labelText: AppLocalizations.tr(lang, 'gifTitleTemplateLabel'),
-                  border: const OutlineInputBorder(),
+    return Dialog(
+      alignment: const Alignment(0, -0.92),
+      insetPadding: const EdgeInsets.fromLTRB(24, 20, 24, 120),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 980),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 20, 24, 16),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        AppLocalizations.tr(lang, 'gifTitleSettingsTitle'),
+                        style: Theme.of(context).textTheme.headlineSmall,
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(Icons.close),
+                      tooltip: AppLocalizations.tr(lang, 'close'),
+                    ),
+                  ],
                 ),
-                items: GifTitres.gifs.keys
-                    .map((gifKey) => DropdownMenuItem<String>(value: gifKey, child: Text(gifKey)))
-                    .toList(),
-                onChanged: (value) {
-                  if (value == null) {
-                    return;
-                  }
-                  setState(() {
-                    _selectedGifKey = value;
-                    _syncColorControllers(_selectedTheme);
-                  });
-                },
-              ),
-              const SizedBox(height: 16),
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  final isNarrow = constraints.maxWidth < 860;
-                  final preview = _SettingsPreview(gifKey: _selectedGifKey, theme: currentTheme);
-                  final editors = _buildEditors(context, currentTheme, lang);
-
-                  if (isNarrow) {
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [preview, const SizedBox(height: 16), editors],
-                    );
-                  }
-
-                  return Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(child: preview),
-                      const SizedBox(width: 16),
-                      Expanded(child: editors),
-                    ],
-                  );
-                },
-              ),
-            ],
+                const SizedBox(height: 8),
+                Text(
+                  AppLocalizations.tr(lang, 'gifTitleSettingsHint'),
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  value: _selectedGifKey,
+                  decoration: InputDecoration(
+                    labelText: AppLocalizations.tr(lang, 'gifTitleTemplateLabel'),
+                    border: const OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                  items: ConfigService.defaultTitleThemes.keys
+                      .map((gifKey) => DropdownMenuItem<String>(value: gifKey, child: Text(gifKey)))
+                      .toList(),
+                  onChanged: (value) {
+                    if (value == null) {
+                      return;
+                    }
+                    setState(() {
+                      _selectedGifKey = value;
+                      _syncColorControllers(_selectedTheme);
+                    });
+                  },
+                ),
+                const SizedBox(height: 16),
+                _buildEditors(context, currentTheme, lang),
+                const SizedBox(height: 16),
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  alignment: WrapAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () async {
+                        await ref.read(appControllerProvider.notifier).resetGifTitleTheme(_selectedGifKey);
+                        if (!mounted) {
+                          return;
+                        }
+                        _syncColorControllers(_selectedTheme);
+                        setState(() {});
+                      },
+                      child: Text(AppLocalizations.tr(lang, 'gifTitleResetCurrent')),
+                    ),
+                    FilledButton.tonal(
+                      onPressed: () => widget.onRunTest(_selectedGifKey),
+                      child: Text(AppLocalizations.tr(lang, 'gifTitleRunTest')),
+                    ),
+                    FilledButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: Text(AppLocalizations.tr(lang, 'close')),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () async {
-            await ref.read(appControllerProvider.notifier).resetGifTitleTheme(_selectedGifKey);
-            if (!mounted) {
-              return;
-            }
-            _syncColorControllers(_selectedTheme);
-            setState(() {});
-          },
-          child: Text(AppLocalizations.tr(lang, 'gifTitleResetCurrent')),
-        ),
-        FilledButton.tonal(
-          onPressed: () => widget.onRunTest(_selectedGifKey),
-          child: Text(AppLocalizations.tr(lang, 'gifTitleRunTest')),
-        ),
-        FilledButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: Text(AppLocalizations.tr(lang, 'close')),
-        ),
-      ],
     );
   }
 
   Widget _buildEditors(BuildContext context, GifTitleTheme currentTheme, String lang) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          AppLocalizations.tr(lang, 'gifTitleNameSection'),
-          style: Theme.of(context).textTheme.titleMedium,
-        ),
-        Slider(
-          value: currentTheme.fioFontScale,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isNarrow = constraints.maxWidth < 720;
+        final fioEditor = _EditorSection(
+          title: AppLocalizations.tr(lang, 'gifTitleNameSection'),
+          fontScale: currentTheme.fioFontScale,
           min: 0.08,
           max: 0.24,
           divisions: 16,
-          label: currentTheme.fioFontScale.toStringAsFixed(2),
-          onChanged: (value) => _updateTheme((theme) => theme.copyWith(fioFontScale: value)),
-        ),
-        Text('${AppLocalizations.tr(lang, 'gifTitleTextSize')}: ${currentTheme.fioFontScale.toStringAsFixed(2)}'),
-        const SizedBox(height: 8),
-        _ColorEditor(
-          label: AppLocalizations.tr(lang, 'gifTitleTextColor'),
+          sizeLabel: AppLocalizations.tr(lang, 'gifTitleTextSize'),
+          colorLabel: AppLocalizations.tr(lang, 'gifTitleTextColor'),
           controller: _fioColorController,
           selectedColor: currentTheme.fioColor,
           presetColors: _presetColors,
+          onScaleChanged: (value) => _updateTheme((theme) => theme.copyWith(fioFontScale: value)),
           onSubmitted: (value) => _applyColor(isFio: true, rawValue: value),
           onPresetSelected: (color) => _updateTheme((theme) => theme.copyWith(fioColor: color)),
-        ),
-        const SizedBox(height: 20),
-        Text(
-          AppLocalizations.tr(lang, 'gifTitleCitySection'),
-          style: Theme.of(context).textTheme.titleMedium,
-        ),
-        Slider(
-          value: currentTheme.cityFontScale,
+        );
+        final cityEditor = _EditorSection(
+          title: AppLocalizations.tr(lang, 'gifTitleCitySection'),
+          fontScale: currentTheme.cityFontScale,
           min: 0.06,
           max: 0.18,
           divisions: 12,
-          label: currentTheme.cityFontScale.toStringAsFixed(2),
-          onChanged: (value) => _updateTheme((theme) => theme.copyWith(cityFontScale: value)),
-        ),
-        Text('${AppLocalizations.tr(lang, 'gifTitleTextSize')}: ${currentTheme.cityFontScale.toStringAsFixed(2)}'),
-        const SizedBox(height: 8),
-        _ColorEditor(
-          label: AppLocalizations.tr(lang, 'gifTitleTextColor'),
+          sizeLabel: AppLocalizations.tr(lang, 'gifTitleTextSize'),
+          colorLabel: AppLocalizations.tr(lang, 'gifTitleTextColor'),
           controller: _cityColorController,
           selectedColor: currentTheme.cityColor,
           presetColors: _presetColors,
+          onScaleChanged: (value) => _updateTheme((theme) => theme.copyWith(cityFontScale: value)),
           onSubmitted: (value) => _applyColor(isFio: false, rawValue: value),
           onPresetSelected: (color) => _updateTheme((theme) => theme.copyWith(cityColor: color)),
+        );
+
+        if (isNarrow) {
+          return Column(
+            children: [
+              fioEditor,
+              const SizedBox(height: 12),
+              cityEditor,
+            ],
+          );
+        }
+
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(child: fioEditor),
+            const SizedBox(width: 12),
+            Expanded(child: cityEditor),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _EditorSection extends StatelessWidget {
+  const _EditorSection({
+    required this.title,
+    required this.fontScale,
+    required this.min,
+    required this.max,
+    required this.divisions,
+    required this.sizeLabel,
+    required this.colorLabel,
+    required this.controller,
+    required this.selectedColor,
+    required this.presetColors,
+    required this.onScaleChanged,
+    required this.onSubmitted,
+    required this.onPresetSelected,
+  });
+
+  final String title;
+  final double fontScale;
+  final double min;
+  final double max;
+  final int divisions;
+  final String sizeLabel;
+  final String colorLabel;
+  final TextEditingController controller;
+  final Color selectedColor;
+  final List<Color> presetColors;
+  final ValueChanged<double> onScaleChanged;
+  final ValueChanged<String> onSubmitted;
+  final ValueChanged<Color> onPresetSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(title, style: Theme.of(context).textTheme.titleMedium),
+            Slider(
+              value: fontScale,
+              min: min,
+              max: max,
+              divisions: divisions,
+              label: fontScale.toStringAsFixed(2),
+              onChanged: onScaleChanged,
+            ),
+            Text('$sizeLabel: ${fontScale.toStringAsFixed(2)}'),
+            const SizedBox(height: 8),
+            _ColorEditor(
+              label: colorLabel,
+              controller: controller,
+              selectedColor: selectedColor,
+              presetColors: presetColors,
+              onSubmitted: onSubmitted,
+              onPresetSelected: onPresetSelected,
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 }
@@ -311,73 +386,6 @@ class _ColorEditor extends StatelessWidget {
           ],
         ),
       ],
-    );
-  }
-}
-
-class _SettingsPreview extends StatelessWidget {
-  const _SettingsPreview({required this.gifKey, required this.theme});
-
-  final String gifKey;
-  final GifTitleTheme theme;
-
-  @override
-  Widget build(BuildContext context) {
-    return AspectRatio(
-      aspectRatio: 16 / 9,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            return Stack(
-              fit: StackFit.expand,
-              children: [
-                Image.asset(
-                  GifTitres.gifs[gifKey]!,
-                  fit: BoxFit.cover,
-                ),
-                Positioned(
-                  left: constraints.maxWidth * theme.fioLeft,
-                  bottom: constraints.maxHeight * theme.fioBottom,
-                  child: Text(
-                    'ИВАНОВА МАРИЯ',
-                    style: TextStyle(
-                      color: theme.fioColor,
-                      fontSize: constraints.maxHeight * theme.fioFontScale,
-                      fontWeight: FontWeight.bold,
-                      shadows: const [
-                        Shadow(
-                          offset: Offset(2, 2),
-                          blurRadius: 4,
-                          color: Colors.black54,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                Positioned(
-                  left: constraints.maxWidth * theme.cityLeft,
-                  bottom: constraints.maxHeight * theme.cityBottom,
-                  child: Text(
-                    'САНКТ-ПЕТЕРБУРГ',
-                    style: TextStyle(
-                      color: theme.cityColor,
-                      fontSize: constraints.maxHeight * theme.cityFontScale,
-                      shadows: const [
-                        Shadow(
-                          offset: Offset(1, 1),
-                          blurRadius: 3,
-                          color: Colors.black54,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            );
-          },
-        ),
-      ),
     );
   }
 }
