@@ -769,6 +769,54 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
             ),
             body: Column(
               children: [
+                Container(
+                  width: double.infinity,
+                  margin: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF111827),
+                    border: Border.all(color: const Color(0xFF374151)),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        AppLocalizations.tr(lang, 'judgeWebPanelTitle'),
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        state.judgeWebServerStatus.isRunning
+                            ? AppLocalizations.tr(lang, 'judgeWebServerRunning')
+                            : AppLocalizations.tr(lang, 'judgeWebServerStopped'),
+                        style: TextStyle(
+                          color: state.judgeWebServerStatus.isRunning ? Colors.greenAccent : Colors.orangeAccent,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      if (state.judgeWebServerStatus.urls.isNotEmpty) ...[
+                        const SizedBox(height: 6),
+                        Text(AppLocalizations.tr(lang, 'judgeWebOpenHint')),
+                        const SizedBox(height: 4),
+                        Wrap(
+                          spacing: 12,
+                          runSpacing: 6,
+                          children: state.judgeWebServerStatus.urls
+                              .map((url) => SelectableText(url, style: const TextStyle(color: Colors.lightBlueAccent)))
+                              .toList(),
+                        ),
+                      ],
+                      if (state.judgeWebServerStatus.errorMessage != null) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          '${AppLocalizations.tr(lang, 'judgeWebServerError')}: ${state.judgeWebServerStatus.errorMessage}',
+                          style: const TextStyle(color: Colors.redAccent),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
                 Expanded(
                   child: Container(
                     color: Colors.black,

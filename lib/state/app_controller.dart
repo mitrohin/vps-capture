@@ -9,6 +9,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../localization/app_localizations.dart';
+
 import '../data/capture/buffer_recorder.dart';
 import '../data/capture/capture_backend.dart';
 import '../data/capture/capture_service.dart';
@@ -21,16 +23,21 @@ import '../data/ffmpeg/ffmpeg_locator.dart';
 import '../data/schedule/schedule_decoder.dart';
 import '../data/schedule/schedule_parser.dart';
 import '../data/storage/app_paths.dart';
+import '../data/web/judge_web_server.dart';
+import '../data/web/recorded_clip_index.dart';
 import '../domain/models/app_config.dart';
 import '../domain/models/capture_device.dart';
 import '../domain/models/ffmpeg_issue.dart';
+import '../domain/models/judge_web_server_status.dart';
 import '../domain/models/schedule_item.dart';
 import 'app_state.dart';
 
 final appControllerProvider = StateNotifierProvider<AppController, AppState>((ref) {
   final paths = AppPaths();
   final backend = CaptureBackend();
-  final captureService = CaptureService(BufferRecorder(paths, backend), ClipExporter(paths));
+  final clipExporter = ClipExporter(paths);
+  final captureService = CaptureService(BufferRecorder(paths, backend), clipExporter);
+  final clipIndex = RecordedClipIndex(paths);
   return AppController(
     FfmpegLocator(paths),
     FfmpegInstaller(paths, Dio()),
@@ -38,7 +45,9 @@ final appControllerProvider = StateNotifierProvider<AppController, AppState>((re
     ScheduleParser(),
     captureService,
     PreviewService(backend),
-    TestRecordService(captureService, ClipExporter(paths)),
+    TestRecordService(captureService, clipExporter),
+    clipIndex,
+    JudgeWebServer(clipIndex),
   )..initialize();
 });
 
@@ -53,6 +62,8 @@ class AppController extends StateNotifier<AppState>  {
     this._capture,
     this._preview,
     this._testRecorder,
+    this._clipIndex,
+    this._judgeWebServer,
   ) : super(const AppState());
 
   final FfmpegLocator _locator;
@@ -63,8 +74,9 @@ class AppController extends StateNotifier<AppState>  {
   final CaptureService _capture;
   final PreviewService _preview;
   final TestRecordService _testRecorder;
+  final RecordedClipIndex _clipIndex;
+  final JudgeWebServer _judgeWebServer;
   Timer? _configWriteDebounceTimer;
-  
 
   SharedPreferences? _prefs;
 
@@ -78,8 +90,10 @@ class AppController extends StateNotifier<AppState>  {
 
     final located = await _locator.locate();
     final cfg = _buildConfigFromPrefs(located);
+    await _clipIndex.load();
     state = state.copyWith(config: cfg);
     await loadScheduleFromFile();
+    await _syncJudgeWebServer(forceRestart: false);
     if (hasCompletedFirstLaunch && cfg.isComplete) {
       await enterWorkMode();
     }
@@ -130,11 +144,13 @@ class AppController extends StateNotifier<AppState>  {
     state = state.copyWith(config: config);
     _configWriteDebounceTimer?.cancel();
     await _persistConfig(config);
+    await _syncJudgeWebServer(forceRestart: state.mode == AppMode.work);
   }
 
   void updateConfigDebounced(AppConfig config, {Duration delay = const Duration(milliseconds: 350)}) {
     state = state.copyWith(config: config);
     _configWriteDebounceTimer?.cancel();
+    unawaited(_syncJudgeWebServer(forceRestart: state.mode == AppMode.work));
     _configWriteDebounceTimer = Timer(delay, () {
       unawaited(_persistConfig(config));
     });
@@ -161,6 +177,7 @@ class AppController extends StateNotifier<AppState>  {
     await prefs.setString('languageCode', config.languageCode);
     await prefs.setString('selectedGif', config.selectedGif ?? 'blue');
     await prefs.setString('version', config.version);
+    await prefs.setInt('webServerPort', config.webServerPort);
   }
 
   Future<void> resetAllSettings() async {
@@ -183,6 +200,8 @@ class AppController extends StateNotifier<AppState>  {
       await _deleteScheduleStorageFiles();
       await _clearSegmentsDirectory();
       await _deleteConcatListFile();
+      await _clipIndex.clear();
+      await _judgeWebServer.stop();
 
       state = AppState(
         config: defaultConfig,
@@ -194,6 +213,7 @@ class AppController extends StateNotifier<AppState>  {
   @override
   void dispose() {
     _configWriteDebounceTimer?.cancel();
+    unawaited(_judgeWebServer.stop());
     super.dispose();
   }
 
@@ -227,6 +247,7 @@ class AppController extends StateNotifier<AppState>  {
     _appendLog('Loaded schedule from $source: ${schedule.length} items.');
     createStructOutputDir(content, state.config.outputDir!, schedule);
     createScheduleFile();
+    unawaited(_syncJudgeWebServer());
   }
 
   void setScheduleInputVisibility(bool isVisible) {
@@ -355,6 +376,7 @@ class AppController extends StateNotifier<AppState>  {
           isScheduleInputVisible: false,
         );
         _appendLog('Loaded schedule from file: ${loadedSchedule.length} items.');
+        await _syncJudgeWebServer();
       } else {
         _appendLog('No schedule file found at: $filePath');
       }
@@ -419,13 +441,21 @@ class AppController extends StateNotifier<AppState>  {
     }
     state = state.copyWith(mode: AppMode.work);
     _appendLog('Entered work mode. Buffer will start on START and stop on STOP.');
+    await _syncJudgeWebServer(forceRestart: true);
   }
 
   Future<void> backToSetup() async {
     await _capture.stopBuffer();
     await _preview.stop();
     await _testRecorder.stop(state.config, _appendLog);
-    state = state.copyWith(mode: AppMode.setup, isPreviewRunning: false, isRecordingMarked: false, clearMarkStart: true);
+    await _judgeWebServer.stop();
+    state = state.copyWith(
+      mode: AppMode.setup,
+      isPreviewRunning: false,
+      isRecordingMarked: false,
+      clearMarkStart: true,
+      judgeWebServerStatus: const JudgeWebServerStatus(),
+    );
   }
 
   Future<void> startMark([int? index]) async {
@@ -472,6 +502,7 @@ class AppController extends StateNotifier<AppState>  {
       );
       await _updateScheduleItemInFile(updated[targetIndex]);
       _appendLog('START marked for ${item.label}. Buffer recording started.');
+      await _syncJudgeWebServer();
     });
   }
 
@@ -504,6 +535,15 @@ class AppController extends StateNotifier<AppState>  {
           status: ScheduleItemStatus.done, 
           startedAt: state.currentMarkStartedAt,
         );
+        await _clipIndex.add(
+          participantId: item.id,
+          fio: item.fio,
+          city: item.city,
+          apparatus: item.apparatus,
+          path: out,
+          threadIndex: item.threadIndex,
+          typeIndex: item.typeIndex,
+        );
         final nextIndex = _findNextReady(updated, activeIndex);
         state = state.copyWith(
           schedule: updated,
@@ -513,6 +553,7 @@ class AppController extends StateNotifier<AppState>  {
         );
         await _updateScheduleItemInFile(updated[activeIndex]);
         _appendLog('STOP complete, clip saved: $out');
+        await _syncJudgeWebServer();
       } catch (_) {
         final updated = [...state.schedule];
         updated[activeIndex] = item.copyWith(
@@ -527,6 +568,7 @@ class AppController extends StateNotifier<AppState>  {
           clearMarkStart: true,
         );
         await _updateScheduleItemInFile(updated[activeIndex]);
+        await _syncJudgeWebServer();
         rethrow;
       }
     });
@@ -558,6 +600,7 @@ class AppController extends StateNotifier<AppState>  {
       state = state.copyWith(schedule: updated, selectedIndex: targetIndex);
       await _updateScheduleItemInFile(item);
       _appendLog('Marked as POSTPONED: ${item.label}.');
+      await _syncJudgeWebServer();
     });
   }
 
@@ -593,6 +636,7 @@ class AppController extends StateNotifier<AppState>  {
       await _updateScheduleItemInFile(updated[index]);
     }
     _appendLog('Restored all postponed items: ${postponedIndexes.length}.');
+    await _syncJudgeWebServer();
   }
 
   void restoreItem(int index) {
@@ -609,6 +653,7 @@ class AppController extends StateNotifier<AppState>  {
     state = state.copyWith(schedule: updated, selectedIndex: index);
     unawaited(_updateScheduleItemInFile(updated[index]));
     _appendLog('Restored item: ${item.label}.');
+    unawaited(_syncJudgeWebServer());
   }
 
   void deleteItem(int index) {
@@ -641,6 +686,7 @@ class AppController extends StateNotifier<AppState>  {
     );
     createScheduleFile();
     _appendLog('Deleted item: ${removed.label}.');
+    unawaited(_syncJudgeWebServer());
   }
 
   void addParticipant({
@@ -676,6 +722,7 @@ class AppController extends StateNotifier<AppState>  {
     );
     createScheduleFile();
     _appendLog('Added participant: ${item.label}.');
+    unawaited(_syncJudgeWebServer());
   }
 
   void selectIndex(int index) {
@@ -758,6 +805,96 @@ class AppController extends StateNotifier<AppState>  {
     return filePath;
   }
 
+  Future<void> _syncJudgeWebServer({bool forceRestart = false}) async {
+    final config = state.config;
+    final snapshot = buildJudgeWebSnapshot(
+      languageCode: config.languageCode,
+      participants: _buildJudgeWebParticipants(),
+    );
+
+    if (state.mode != AppMode.work || !config.isComplete) {
+      await _judgeWebServer.stop();
+      state = state.copyWith(judgeWebServerStatus: const JudgeWebServerStatus());
+      return;
+    }
+
+    final currentStatus = state.judgeWebServerStatus;
+    final shouldRestart = forceRestart ||
+        !currentStatus.isRunning ||
+        currentStatus.port != config.webServerPort ||
+        currentStatus.urls.isEmpty;
+
+    if (shouldRestart) {
+      final status = await _judgeWebServer.start(
+        port: config.webServerPort,
+        snapshot: snapshot,
+      );
+      state = state.copyWith(judgeWebServerStatus: status);
+      if (status.errorMessage != null) {
+        _appendLog('Judge web server error: ${status.errorMessage}');
+      } else if (status.isRunning) {
+        _appendLog('Judge web server started on port ${status.port}.');
+      }
+      return;
+    }
+
+    await _judgeWebServer.update(snapshot);
+    state = state.copyWith(
+      judgeWebServerStatus: currentStatus.copyWith(
+        isRunning: true,
+        port: config.webServerPort,
+        clearErrorMessage: true,
+      ),
+    );
+  }
+
+  List<JudgeWebParticipant> _buildJudgeWebParticipants() {
+    final participants = state.schedule.map((item) {
+      final clip = _clipIndex.latestForParticipant(item.id);
+      return JudgeWebParticipant(
+        id: item.id,
+        fio: item.fio,
+        city: item.city,
+        apparatus: item.apparatus,
+        status: item.status.name,
+        statusLabel: AppLocalizations.tr(state.config.languageCode, item.status.name),
+        clipId: clip != null && File(clip.path).existsSync() ? clip.clipId : null,
+        startedAt: item.startedAt,
+        startedAtLabel: item.startedAt?.toLocal().toIso8601String().replaceFirst('T', ' ').substring(0, 19),
+        threadIndex: item.threadIndex,
+        typeIndex: item.typeIndex,
+        threadLabel: item.threadIndex == null ? null : 'T${item.threadIndex! + 1}',
+        typeLabel: item.typeIndex == null ? null : 'E${item.typeIndex! + 1}',
+      );
+    }).toList(growable: false);
+
+    participants.sort((left, right) {
+      final statusCompare = _judgeStatusWeight(left.status).compareTo(_judgeStatusWeight(right.status));
+      if (statusCompare != 0) return statusCompare;
+      final threadCompare = (left.threadIndex ?? 1 << 20).compareTo(right.threadIndex ?? 1 << 20);
+      if (threadCompare != 0) return threadCompare;
+      final typeCompare = (left.typeIndex ?? 1 << 20).compareTo(right.typeIndex ?? 1 << 20);
+      if (typeCompare != 0) return typeCompare;
+      return left.fio.compareTo(right.fio);
+    });
+    return participants;
+  }
+
+  int _judgeStatusWeight(String status) {
+    switch (status) {
+      case 'active':
+        return 0;
+      case 'done':
+        return 1;
+      case 'pending':
+        return 2;
+      case 'postponed':
+        return 3;
+      default:
+        return 4;
+    }
+  }
+
   int _findNextReady(List<ScheduleItem> items, int from) {
     for (var i = from + 1; i < items.length; i++) {
       final status = items[i].status;
@@ -792,6 +929,7 @@ class AppController extends StateNotifier<AppState>  {
       languageCode: _stringOrNull(prefs.getString('languageCode')) ?? defaultConfig.languageCode,
       selectedGif: prefs.getString('selectedGif') ?? defaultConfig.selectedGif,
       version: currentAppVersion,
+      webServerPort: prefs.getInt('webServerPort') ?? defaultConfig.webServerPort,
     );
   }
 
@@ -802,6 +940,7 @@ class AppController extends StateNotifier<AppState>  {
       codec: Platform.isMacOS ? 'h264_videotoolbox' : 'libx264',
       selectedGif: 'blue',
       version: currentAppVersion,
+      webServerPort: 38117,
     );
   }
 
@@ -810,6 +949,7 @@ class AppController extends StateNotifier<AppState>  {
     final targets = <File>[
       File(p.join(storageDir.path, 'schedule.json')),
       File(p.join(storageDir.path, 'config.json')),
+      File(p.join(storageDir.path, 'recorded_clips.json')),
       if (Platform.isMacOS)
         ...AppPaths.getMacOSLegacyScheduleDirectories()
             .map((dirPath) => File(p.join(dirPath, 'schedule.json'))),

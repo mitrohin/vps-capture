@@ -378,7 +378,65 @@ class SetupScreen extends ConsumerWidget {
                     },
                   ),
                 ),
+                SizedBox(
+                  width: 180,
+                  child: TextFormField(
+                    initialValue: '${cfg.webServerPort}',
+                    decoration: InputDecoration(labelText: AppLocalizations.tr(lang, 'judgeWebPort'), border: const OutlineInputBorder()),
+                    keyboardType: TextInputType.number,
+                    onFieldSubmitted: (value) async {
+                      final parsed = int.tryParse(value);
+                      if (parsed != null && parsed >= 1024 && parsed <= 65535) {
+                        await controller.updateConfig(cfg.copyWith(webServerPort: parsed));
+                      }
+                    },
+                  ),
+                ),
               ],
+            ),
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFF111827),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFF374151)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    AppLocalizations.tr(lang, 'judgeWebPanelTitle'),
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(AppLocalizations.tr(lang, 'judgeWebPanelDescription')),
+                  const SizedBox(height: 12),
+                  Text(
+                    state.judgeWebServerStatus.isRunning
+                        ? AppLocalizations.tr(lang, 'judgeWebServerRunning')
+                        : AppLocalizations.tr(lang, 'judgeWebServerStopped'),
+                    style: TextStyle(
+                      color: state.judgeWebServerStatus.isRunning ? Colors.greenAccent : Colors.orangeAccent,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  if (state.judgeWebServerStatus.errorMessage != null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      '${AppLocalizations.tr(lang, 'judgeWebServerError')}: ${state.judgeWebServerStatus.errorMessage}',
+                      style: const TextStyle(color: Colors.redAccent),
+                    ),
+                  ],
+                  if (state.judgeWebServerStatus.urls.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Text(AppLocalizations.tr(lang, 'judgeWebOpenHint')),
+                    const SizedBox(height: 4),
+                    ...state.judgeWebServerStatus.urls.map((url) => SelectableText(url)),
+                  ],
+                ],
+              ),
             ),
             const SizedBox(height: 12),
             FilledButton(

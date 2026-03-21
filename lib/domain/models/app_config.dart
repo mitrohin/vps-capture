@@ -20,6 +20,7 @@ class AppConfig {
     this.languageCode = 'en',
     this.selectedGif,
     this.version = '1.0.1',
+    this.webServerPort = 38117,
   });
 
   final String? ffmpegPath;
@@ -40,6 +41,7 @@ class AppConfig {
   final String languageCode;
   final String? selectedGif;
   final String version;
+  final int webServerPort;
 
   bool get isComplete =>
       (ffmpegPath?.isNotEmpty ?? false) &&
@@ -69,6 +71,7 @@ class AppConfig {
     bool clearAudioDevice = false,
     String? selectedGif,
     String? version,
+    int? webServerPort,
   }) {
     return AppConfig(
       ffmpegPath: ffmpegPath ?? this.ffmpegPath,
@@ -89,6 +92,7 @@ class AppConfig {
       languageCode: languageCode ?? this.languageCode,
       selectedGif: selectedGif ?? this.selectedGif,
       version: version ?? this.version,
+      webServerPort: webServerPort ?? this.webServerPort,
     );
   }
 }
