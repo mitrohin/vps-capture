@@ -849,12 +849,24 @@ class AppController extends StateNotifier<AppState> {
 
   Future<void> togglePreview() async {
     await _guard(() async {
+      final config = state.config;
       if (state.isPreviewRunning) {
         await _preview.stop();
         state = state.copyWith(isPreviewRunning: false);
         _appendLog('Preview stopped.');
       } else {
-        await _preview.start(state.config, _appendLog);
+        if ((config.ffplayPath?.isEmpty ?? true) || !config.isComplete) {
+          _appendLog('Cannot start preview: configure ffplay, output folder, source, and both devices first.');
+          return;
+        }
+        _appendLog(
+          'Starting preview with source=${config.sourceKind!.name}, '
+          'video=${config.selectedVideoDevice!.displayLabel}, '
+          'audio=${config.selectedAudioDevice!.displayLabel}, '
+          'fps=${config.fps}, codec=${config.codec ?? 'libx264'}, '
+          'videoBitrate=${config.videoBitrate}, audioBitrate=${config.audioBitrate}.',
+        );
+        await _preview.start(config, _appendLog);
         state = state.copyWith(isPreviewRunning: true);
         _appendLog('Preview started.');
       }

@@ -8,6 +8,11 @@ class FileNamer {
     return '$id ${safeFio}_$safeApp-$ts.mp4';
   }
 
+  static String testRecordingName({DateTime? at}) {
+    final ts = DateFormat('yyyyMMdd_HHmmss').format(at ?? DateTime.now());
+    return 'test_$ts.mp4';
+  }
+
   static String _sanitize(String value) {
     final trimmed = value.trim();
     final invalid = RegExp(r'[<>:"/\\|?*\x00-\x1F]');
