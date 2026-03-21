@@ -138,6 +138,18 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
             ),
           ],
         ),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: Tooltip(
+              message: AppLocalizations.tr(lang, 'continueToWork'),
+              child: IconButton(
+                onPressed: cfg.isComplete && state.devices.isNotEmpty ? controller.enterWorkMode : null,
+                icon: const Icon(Icons.close_rounded),
+              ),
+            ),
+          ),
+        ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(16),
@@ -160,129 +172,191 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
                 ),
               ],
             ),
-            Wrap(spacing: 12, runSpacing: 8, children: [
-              OutlinedButton(
-                onPressed: () async {
-                  final path = await FilePicker.platform.pickFiles(dialogTitle: 'Pick ffmpeg binary').then((v) => v?.files.single.path);
-                  if (path != null) {
-                    await controller.updateConfig(cfg.copyWith(ffmpegPath: path));
-                  }
-                },
-                child: Text(AppLocalizations.tr(lang, 'pickFfmpeg')),
-              ),
-              OutlinedButton(
-                onPressed: () async {
-                  final path = await FilePicker.platform.getDirectoryPath(dialogTitle: 'Select output folder');
-                  if (path != null) {
-                    await controller.updateConfig(cfg.copyWith(outputDir: path));
-                  }
-                },
-                child: Text(AppLocalizations.tr(lang, 'chooseOutputFolder')),
-              ),
-              OutlinedButton(
-                onPressed: () async {
-                  final path = await FilePicker.platform.pickFiles(dialogTitle: 'Pick ffplay binary').then((v) => v?.files.single.path);
-                  if (path != null) {
-                    await controller.updateConfig(cfg.copyWith(ffplayPath: path));
-                  }
-                },
-                child: Text(AppLocalizations.tr(lang, 'pickFfplay')),
-              ),
-            ]),
+            Wrap(
+              spacing: 12,
+              runSpacing: 8,
+              children: [
+                OutlinedButton(
+                  onPressed: () async {
+                    final path = await FilePicker.platform.pickFiles(dialogTitle: 'Pick ffmpeg binary').then((v) => v?.files.single.path);
+                    if (path != null) {
+                      await controller.updateConfig(cfg.copyWith(ffmpegPath: path));
+                    }
+                  },
+                  child: Text(AppLocalizations.tr(lang, 'pickFfmpeg')),
+                ),
+                OutlinedButton(
+                  onPressed: () async {
+                    final path = await FilePicker.platform.getDirectoryPath(dialogTitle: 'Select output folder');
+                    if (path != null) {
+                      await controller.updateConfig(cfg.copyWith(outputDir: path));
+                    }
+                  },
+                  child: Text(AppLocalizations.tr(lang, 'chooseOutputFolder')),
+                ),
+                OutlinedButton(
+                  onPressed: () async {
+                    final path = await FilePicker.platform.pickFiles(dialogTitle: 'Pick ffplay binary').then((v) => v?.files.single.path);
+                    if (path != null) {
+                      await controller.updateConfig(cfg.copyWith(ffplayPath: path));
+                    }
+                  },
+                  child: Text(AppLocalizations.tr(lang, 'pickFfplay')),
+                ),
+              ],
+            ),
             const SizedBox(height: 12),
             Text('ffmpeg: ${cfg.ffmpegPath ?? AppLocalizations.tr(lang, 'notSelected')}'),
             Text('ffplay: ${cfg.ffplayPath ?? AppLocalizations.tr(lang, 'notSelected')}'),
             const SizedBox(height: 8),
             Text('${AppLocalizations.tr(lang, 'outputFolder')}: ${cfg.outputDir ?? AppLocalizations.tr(lang, 'notSelected')}'),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                IntrinsicWidth(
-                  child: DropdownButton<CaptureSourceKind>(
-                    value: cfg.sourceKind,
-                    hint: Text(AppLocalizations.tr(lang, 'captureSource')),
-                    items: sourceChoices
-                        .map((s) => DropdownMenuItem(value: s, child: Text(s.name)))
-                        .toList(),
-                    onChanged: (value) async {
-                      await controller.updateConfig(cfg.copyWith(sourceKind: value, clearVideoDevice: true, clearAudioDevice: true));
-                    },
-                  ),
-                ),
-              ]
-            ),
-            const SizedBox(height: 8),
-            Row(children: [
-              FilledButton(
-                onPressed: (cfg.ffmpegPath == null || cfg.sourceKind == null) ? null : controller.detectDevices,
-                child: Text(AppLocalizations.tr(lang, 'scanDevices')),
+            const SizedBox(height: 16),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade50,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.grey.shade200),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    AppLocalizations.tr(lang, 'captureSetupSectionTitle'),
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    AppLocalizations.tr(lang, 'captureSetupSectionHint'),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey.shade700),
+                  ),
+                  const SizedBox(height: 16),
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
                     children: [
-                      Expanded(
-                        child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(AppLocalizations.tr(lang, 'detectedVideoDevices')),
-                              const SizedBox(height: 4),
-                              DropdownButton<CaptureDevice>(
-                              value: selectedVideoValue,
-                              isExpanded: true,
-                              hint: Text(AppLocalizations.tr(lang, 'selectedVideoDevices')),
-                              items: videoDevices
-                                  .map((d) => DropdownMenuItem(value: d, child: Text(d.displayLabel)))
-                                  .toList(),
-                              onChanged: (value) async {
-                                if (value != null) {
-                                  await controller.updateConfig(cfg.copyWith(selectedVideoDevice: value));
-                                }
-                              },
+                      SizedBox(
+                        width: 255,
+                        child: _buildSelectorCard(
+                          context: context,
+                          title: AppLocalizations.tr(lang, 'captureSource'),
+                          description: AppLocalizations.tr(lang, 'captureSourceHelp'),
+                          child: DropdownButtonFormField<CaptureSourceKind>(
+                            value: cfg.sourceKind,
+                            decoration: InputDecoration(
+                              labelText: AppLocalizations.tr(lang, 'captureSourceLabel'),
+                              border: const OutlineInputBorder(),
+                              isDense: true,
                             ),
-                            ],
+                            items: sourceChoices
+                                .map((source) => DropdownMenuItem(
+                                      value: source,
+                                      child: Text(_sourceLabel(lang, source)),
+                                    ))
+                                .toList(),
+                            onChanged: (value) async {
+                              await controller.updateConfig(
+                                cfg.copyWith(
+                                  sourceKind: value,
+                                  clearVideoDevice: true,
+                                  clearAudioDevice: true,
+                                ),
+                              );
+                            },
+                          ),
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                            child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                    Text(AppLocalizations.tr(lang, 'detectedAudioDevices')),
-                                    const SizedBox(height: 4),
-                                    DropdownButton<CaptureDevice>(
-                                    value: selectedAudioValue,
-                                    isExpanded: true,
-                                    hint: Text(AppLocalizations.tr(lang, 'selectedAudioDevices')),
-                                    items: audioDevices
-                                        .map((d) => DropdownMenuItem(value: d, child: Text(d.displayLabel)))
-                                        .toList(),
-                                    onChanged: (value) async {
-                                      if (value != null) {
-                                        await controller.updateConfig(cfg.copyWith(selectedAudioDevice: value));
-                                      }
-                                    },
-                                  ),
-                                ],
+                      SizedBox(
+                        width: 255,
+                        child: _buildSelectorCard(
+                          context: context,
+                          title: AppLocalizations.tr(lang, 'selectedVideoDevices'),
+                          description: AppLocalizations.tr(lang, 'videoDeviceHelp'),
+                          child: DropdownButtonFormField<CaptureDevice>(
+                            value: selectedVideoValue,
+                            isExpanded: true,
+                            decoration: InputDecoration(
+                              labelText: AppLocalizations.tr(lang, 'detectedVideoDevices'),
+                              border: const OutlineInputBorder(),
+                              isDense: true,
                             ),
+                            items: videoDevices
+                                .map((device) => DropdownMenuItem(
+                                      value: device,
+                                      child: Text(device.displayLabel, overflow: TextOverflow.ellipsis),
+                                    ))
+                                .toList(),
+                            onChanged: (value) async {
+                              if (value != null) {
+                                await controller.updateConfig(cfg.copyWith(selectedVideoDevice: value));
+                              }
+                            },
+                          ),
+                        ),
                       ),
-                    ]
-                ),
+                      SizedBox(
+                        width: 255,
+                        child: _buildSelectorCard(
+                          context: context,
+                          title: AppLocalizations.tr(lang, 'selectedAudioDevices'),
+                          description: AppLocalizations.tr(lang, 'audioDeviceHelp'),
+                          child: DropdownButtonFormField<CaptureDevice>(
+                            value: selectedAudioValue,
+                            isExpanded: true,
+                            decoration: InputDecoration(
+                              labelText: AppLocalizations.tr(lang, 'detectedAudioDevices'),
+                              border: const OutlineInputBorder(),
+                              isDense: true,
+                            ),
+                            items: audioDevices
+                                .map((device) => DropdownMenuItem(
+                                      value: device,
+                                      child: Text(device.displayLabel, overflow: TextOverflow.ellipsis),
+                                    ))
+                                .toList(),
+                            onChanged: (value) async {
+                              if (value != null) {
+                                await controller.updateConfig(cfg.copyWith(selectedAudioDevice: value));
+                              }
+                            },
+                          ),
+                        ),
+                      ),
+                      SizedBox(
+                        width: 255,
+                        child: _buildSelectorCard(
+                          context: context,
+                          title: AppLocalizations.tr(lang, 'codec'),
+                          description: AppLocalizations.tr(lang, 'codecHelp'),
+                          child: DropdownButtonFormField<String>(
+                            value: cfg.codec,
+                            decoration: InputDecoration(
+                              labelText: AppLocalizations.tr(lang, 'codecLabel'),
+                              border: const OutlineInputBorder(),
+                              isDense: true,
+                            ),
+                            items: codecOptions
+                                .map((codec) => DropdownMenuItem(value: codec, child: Text(codec)))
+                                .toList(),
+                            onChanged: (value) async {
+                              await controller.updateConfig(cfg.copyWith(codec: value));
+                            },
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  FilledButton.icon(
+                    onPressed: (cfg.ffmpegPath == null || cfg.sourceKind == null) ? null : controller.detectDevices,
+                    icon: const Icon(Icons.sync_rounded),
+                    label: Text(AppLocalizations.tr(lang, 'scanDevices')),
+                  ),
+                ],
               ),
-            ]),
-            const SizedBox(height: 8),
-            Row(children: [
-              DropdownButton<String>(
-                value: cfg.codec,
-                hint: Text(AppLocalizations.tr(lang, 'codec')),
-                items: codecOptions.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
-                onChanged: (value) async {
-                  await controller.updateConfig(cfg.copyWith(codec: value));
-                },
-              ),
-            ]),
-            const SizedBox(height: 8),
+            ),
+            const SizedBox(height: 16),
             Wrap(
               spacing: 12,
               runSpacing: 8,
@@ -326,7 +400,10 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
                   width: 180,
                   child: TextFormField(
                     initialValue: '${cfg.bufferMinutes}',
-                    decoration: InputDecoration(labelText: AppLocalizations.tr(lang, 'bufferMin'), border: const OutlineInputBorder()),
+                    decoration: InputDecoration(
+                      labelText: AppLocalizations.tr(lang, 'bufferMin'),
+                      border: const OutlineInputBorder(),
+                    ),
                     keyboardType: TextInputType.number,
                     onFieldSubmitted: (value) async {
                       final parsed = int.tryParse(value);
@@ -340,7 +417,10 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
                   width: 180,
                   child: TextFormField(
                     initialValue: '${cfg.preRollSeconds}',
-                    decoration: InputDecoration(labelText: AppLocalizations.tr(lang, 'preRollSec'), border: const OutlineInputBorder()),
+                    decoration: InputDecoration(
+                      labelText: AppLocalizations.tr(lang, 'preRollSec'),
+                      border: const OutlineInputBorder(),
+                    ),
                     keyboardType: TextInputType.number,
                     onFieldSubmitted: (value) async {
                       final parsed = int.tryParse(value);
@@ -432,7 +512,10 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
                   width: 180,
                   child: TextFormField(
                     initialValue: '${cfg.webServerPort}',
-                    decoration: InputDecoration(labelText: AppLocalizations.tr(lang, 'judgeWebPort'), border: const OutlineInputBorder()),
+                    decoration: InputDecoration(
+                      labelText: AppLocalizations.tr(lang, 'judgeWebPort'),
+                      border: const OutlineInputBorder(),
+                    ),
                     keyboardType: TextInputType.number,
                     onFieldSubmitted: (value) async {
                       final parsed = int.tryParse(value);
@@ -445,20 +528,13 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
               ],
             ),
             const SizedBox(height: 12),
-            FilledButton(
-              onPressed: cfg.isComplete && state.devices.isNotEmpty ? controller.enterWorkMode : null,
-              child: Text(AppLocalizations.tr(lang, 'continueToWork')),
-            ),
-            const SizedBox(height: 12),
             Wrap(
               spacing: 12,
               runSpacing: 8,
               children: [
                 OutlinedButton.icon(
                   style: subtleActionStyle,
-                  onPressed: state.isLoading
-                      ? null
-                      : () => _confirmAutomaticInstall(context, ref, lang),
+                  onPressed: state.isLoading ? null : () => _confirmAutomaticInstall(context, ref, lang),
                   icon: const Icon(Icons.download_rounded),
                   label: Text(AppLocalizations.tr(lang, 'installAutomatically')),
                 ),
@@ -474,10 +550,7 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
                       : controller.togglePreview,
                   icon: Icon(state.isPreviewRunning ? Icons.visibility_off_outlined : Icons.visibility_outlined),
                   label: Text(
-                    AppLocalizations.tr(
-                      lang,
-                      state.isPreviewRunning ? 'stopPreview' : 'startPreview',
-                    ),
+                    AppLocalizations.tr(lang, state.isPreviewRunning ? 'stopPreview' : 'startPreview'),
                   ),
                 ),
                 OutlinedButton.icon(
@@ -492,10 +565,7 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
                       : controller.toggleTestRecording,
                   icon: Icon(state.isTestRecording ? Icons.stop_circle_outlined : Icons.fiber_manual_record_rounded),
                   label: Text(
-                    AppLocalizations.tr(
-                      lang,
-                      state.isTestRecording ? 'stopTestRecording' : 'startTestRecording',
-                    ),
+                    AppLocalizations.tr(lang, state.isTestRecording ? 'stopTestRecording' : 'startTestRecording'),
                   ),
                 ),
                 OutlinedButton.icon(
@@ -503,9 +573,7 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
                     foregroundColor: WidgetStatePropertyAll(Colors.red.shade400),
                     side: WidgetStatePropertyAll(BorderSide(color: Colors.red.shade200)),
                   ),
-                  onPressed: state.isLoading
-                      ? null
-                      : () => _confirmFullReset(context, ref, lang),
+                  onPressed: state.isLoading ? null : () => _confirmFullReset(context, ref, lang),
                   icon: const Icon(Icons.warning_amber_rounded),
                   label: Text(AppLocalizations.tr(lang, 'fullResetSettings')),
                 ),
@@ -517,6 +585,46 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
         ),
       ),
     );
+  }
+
+  Widget _buildSelectorCard({
+    required BuildContext context,
+    required String title,
+    required String description,
+    required Widget child,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: Theme.of(context).textTheme.labelLarge),
+          const SizedBox(height: 4),
+          Text(
+            description,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey.shade700),
+          ),
+          const SizedBox(height: 10),
+          child,
+        ],
+      ),
+    );
+  }
+
+  String _sourceLabel(String languageCode, CaptureSourceKind kind) {
+    switch (kind) {
+      case CaptureSourceKind.avFoundation:
+        return AppLocalizations.tr(languageCode, 'sourceTypeAvFoundation');
+      case CaptureSourceKind.directShow:
+        return AppLocalizations.tr(languageCode, 'sourceTypeDirectShow');
+      case CaptureSourceKind.deckLink:
+        return AppLocalizations.tr(languageCode, 'sourceTypeDeckLink');
+    }
   }
 }
 
