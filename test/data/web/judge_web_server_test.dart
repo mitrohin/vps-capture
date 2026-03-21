@@ -28,6 +28,32 @@ void main() {
     });
   });
 
+  test('index page is served as utf-8 html without touching response encoding', () async {
+    final server = JudgeWebServer(RecordedClipIndex(AppPaths()));
+    final snapshot = buildJudgeWebSnapshot(languageCode: 'en');
+
+    final status = await server.start(port: 0, snapshot: snapshot);
+    expect(status.isRunning, isTrue);
+    final baseUrl = Uri.parse('http://127.0.0.1:${status.port}');
+
+    final client = HttpClient();
+    try {
+      final request = await client.getUrl(baseUrl);
+      final response = await request.close();
+
+      expect(response.statusCode, HttpStatus.ok);
+      expect(response.headers.contentType?.mimeType, 'text/html');
+      expect(response.headers.contentType?.charset?.toLowerCase(), 'utf-8');
+
+      final body = await response.transform(const Utf8Decoder()).join();
+      expect(body, contains('<!doctype html>'));
+      expect(body, contains('VPS Capture Judge Panel'));
+    } finally {
+      client.close(force: true);
+      await server.stop();
+    }
+  });
+
   test('events endpoint streams initial snapshot without mutating response encoding', () async {
     final server = JudgeWebServer(RecordedClipIndex(AppPaths()));
     final snapshot = buildJudgeWebSnapshot(
