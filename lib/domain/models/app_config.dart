@@ -1,4 +1,6 @@
+import '../../data/services/config_services.dart';
 import 'capture_device.dart';
+import 'gif_title_theme.dart';
 
 class AppConfig {
   const AppConfig({
@@ -19,7 +21,8 @@ class AppConfig {
     this.preRollSeconds = 2,
     this.languageCode = 'en',
     this.selectedGif,
-    this.version = '2.1.1',
+    this.gifTitleThemes,
+    this.version = '2.2.4',
     this.webServerPort = 38117,
   });
 
@@ -40,8 +43,12 @@ class AppConfig {
   final int preRollSeconds;
   final String languageCode;
   final String? selectedGif;
+  final Map<String, GifTitleTheme>? gifTitleThemes;
   final String version;
   final int webServerPort;
+
+  Map<String, GifTitleTheme> get resolvedGifTitleThemes =>
+      gifTitleThemes ?? ConfigService.copyDefaultTitleThemes();
 
   bool get isComplete =>
       (ffmpegPath?.isNotEmpty ?? false) &&
@@ -70,6 +77,7 @@ class AppConfig {
     bool clearVideoDevice = false,
     bool clearAudioDevice = false,
     String? selectedGif,
+    Map<String, GifTitleTheme>? gifTitleThemes,
     String? version,
     int? webServerPort,
   }) {
@@ -91,6 +99,7 @@ class AppConfig {
       preRollSeconds: preRollSeconds ?? this.preRollSeconds,
       languageCode: languageCode ?? this.languageCode,
       selectedGif: selectedGif ?? this.selectedGif,
+      gifTitleThemes: gifTitleThemes ?? this.gifTitleThemes,
       version: version ?? this.version,
       webServerPort: webServerPort ?? this.webServerPort,
     );

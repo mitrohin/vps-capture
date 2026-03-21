@@ -12,6 +12,7 @@ import '../../localization/app_localizations.dart';
 import '../../domain/models/schedule_item.dart';
 import '../../state/app_controller.dart';
 import '../../state/app_state.dart';
+import '../widgets/gif_title_settings_dialog.dart';
 import '../widgets/gif_titres.dart';
 import '../widgets/judge_server_status.dart';
 import '../widgets/schedule_list.dart';
@@ -555,6 +556,27 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
     controller.applySchedule(scheduleData, source: 'ui');
   }
 
+
+  Future<void> _showGifTitleSettingsDialog(String lang, String initialGifKey) async {
+    await showDialog<void>(
+      context: context,
+      builder: (context) => GifTitleSettingsDialog(
+        languageCode: lang,
+        initialGifKey: initialGifKey,
+        onRunTest: (gifKey) async {
+          final controller = ref.read(appControllerProvider.notifier);
+          if (ref.read(appControllerProvider).config.selectedGif != gifKey) {
+            await controller.setSelectedGif(gifKey);
+          }
+          if (!mounted) {
+            return;
+          }
+          _gifTitresKey.currentState?.runTestTitle();
+        },
+      ),
+    );
+  }
+
   Future<void> _showFfmpegIssueDialog(FfmpegIssue issue, String lang) async {
     _isFfmpegDialogVisible = true;
     final controller = ref.read(appControllerProvider.notifier);
@@ -816,6 +838,11 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
                   icon: const Icon(Icons.person_add),
                 ),
                 IconButton(
+                  tooltip: AppLocalizations.tr(lang, 'gifTitleOpenSettings'),
+                  onPressed: () => _showGifTitleSettingsDialog(lang, state.config.selectedGif ?? 'blue'),
+                  icon: const Icon(Icons.subtitles_outlined),
+                ),
+                IconButton(
                   tooltip: AppLocalizations.tr(lang, 'backToSetup'),
                   onPressed: controller.backToSetup,
                   icon: const Icon(Icons.settings),
@@ -906,6 +933,15 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
                                             controller.setSelectedGif(value);
                                           }
                                         },
+                                      ),
+                                    ),
+                                    const SizedBox(height: 10),
+                                    SizedBox(
+                                      width: 160,
+                                      child: FilledButton.tonalIcon(
+                                        onPressed: () => _showGifTitleSettingsDialog(lang, state.config.selectedGif ?? 'blue'),
+                                        icon: const Icon(Icons.tune),
+                                        label: Text(AppLocalizations.tr(lang, 'gifTitleOpenSettings')),
                                       ),
                                     ),
                                     const SizedBox(height: 10),
