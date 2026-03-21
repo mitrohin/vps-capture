@@ -19,7 +19,7 @@ class AppConfig {
     this.preRollSeconds = 2,
     this.languageCode = 'en',
     this.selectedGif,
-    this.version = '1.0.1',
+    this.version = '2.0.2',
     this.webServerPort = 38117,
   });
 
