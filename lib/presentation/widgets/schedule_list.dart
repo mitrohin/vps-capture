@@ -52,10 +52,31 @@ class ScheduleList extends StatefulWidget {
 class _ScheduleListState extends State<ScheduleList> {
   int? _hoveredIndex;
   int? _lastScrolledSelectedIndex;
+  final ScrollController _currentThreadScrollController = ScrollController();
+  final ScrollController _nextThreadScrollController = ScrollController();
+  final ScrollController _postponedScrollController = ScrollController();
+  final GlobalKey _selectedItemKey = GlobalKey();
+
+  @override
+  void dispose() {
+    _currentThreadScrollController.dispose();
+    _nextThreadScrollController.dispose();
+    _postponedScrollController.dispose();
+    super.dispose();
+  }
 
   @override
   void didUpdateWidget(covariant ScheduleList oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (_entriesChanged(oldWidget.currentThreadItems, widget.currentThreadItems) ||
+        oldWidget.currentThreadTitle != widget.currentThreadTitle) {
+      _scrollToTop(_currentThreadScrollController);
+    }
+    if (_entriesChanged(oldWidget.nextThreadItems, widget.nextThreadItems) ||
+        oldWidget.nextThreadTitle != widget.nextThreadTitle) {
+      _scrollToTop(_nextThreadScrollController);
+    }
+
     final selectedIndex = widget.selectedIndex;
     if (selectedIndex == null || selectedIndex == _lastScrolledSelectedIndex) {
       return;
@@ -75,7 +96,27 @@ class _ScheduleListState extends State<ScheduleList> {
     });
   }
 
-  final GlobalKey _selectedItemKey = GlobalKey();
+  bool _entriesChanged(List<ScheduleListEntry> previous, List<ScheduleListEntry> next) {
+    if (previous.length != next.length) {
+      return true;
+    }
+    for (var index = 0; index < previous.length; index++) {
+      if (previous[index].globalIndex != next[index].globalIndex ||
+          previous[index].item.id != next[index].item.id) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  void _scrollToTop(ScrollController controller) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !controller.hasClients) {
+        return;
+      }
+      controller.jumpTo(0);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -87,6 +128,7 @@ class _ScheduleListState extends State<ScheduleList> {
             title: widget.currentThreadTitle,
             entries: widget.currentThreadItems,
             showThreadBadge: false,
+            scrollController: _currentThreadScrollController,
           ),
         ),
         const SizedBox(width: 10),
@@ -96,6 +138,7 @@ class _ScheduleListState extends State<ScheduleList> {
             entries: widget.nextThreadItems,
             showThreadBadge: false,
             emptyLabel: widget.nextThreadEmptyLabel,
+            scrollController: _nextThreadScrollController,
           ),
         ),
         if (widget.middleControls != null) ...[
@@ -108,6 +151,7 @@ class _ScheduleListState extends State<ScheduleList> {
             title: widget.postponedTitle,
             entries: widget.postponedItems,
             showThreadBadge: true,
+            scrollController: _postponedScrollController,
           ),
         ),
       ],
@@ -118,6 +162,7 @@ class _ScheduleListState extends State<ScheduleList> {
     required String title,
     required List<ScheduleListEntry> entries,
     required bool showThreadBadge,
+    required ScrollController scrollController,
     String? emptyLabel,
   }) {
     return Column(
@@ -140,6 +185,7 @@ class _ScheduleListState extends State<ScheduleList> {
               border: Border.all(color: const Color(0xFF2A2A2D)),
             ),
             child: ListView.builder(
+              controller: scrollController,
               itemCount: entries.length,
               itemBuilder: (context, listIndex) {
                 final entry = entries[listIndex];

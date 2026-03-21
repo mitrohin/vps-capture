@@ -142,27 +142,6 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
         scheduleItem.id == item.id);
   }
 
-  List<int?> _getVisibleThreadOrder(List<ScheduleItem> items) {
-    final threads = items
-        .where((item) => item.threadIndex != null)
-        .map((item) => item.threadIndex)
-        .toSet()
-        .toList();
-    threads.sort((a, b) => (a ?? 0).compareTo(b ?? 0));
-    return threads;
-  }
-
-  bool _isThreadCompleted(List<ScheduleItem> items, int threadIndex) {
-    final threadItems = items.where((item) => item.threadIndex == threadIndex).toList();
-    if (threadItems.isEmpty) return false;
-    return threadItems.every(
-      (item) =>
-          item.isPinnedToPostponed ||
-          item.status == ScheduleItemStatus.done ||
-          item.status == ScheduleItemStatus.postponed,
-    );
-  }
-
   int? _nextVisibleThread(List<int> threadOrder, int currentThread) {
     final currentIndex = threadOrder.indexOf(currentThread);
     if (currentIndex == -1 || currentIndex + 1 >= threadOrder.length) {
@@ -170,27 +149,6 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
     }
     return threadOrder[currentIndex + 1];
   }
-
-  int? _resolveCurrentThread(List<ScheduleItem> filteredItems) {
-    final threadOrder = _getVisibleThreadOrder(filteredItems).whereType<int>().toList();
-    if (threadOrder.isEmpty) return null;
-
-    final selectedThread = _selectedThreadFilter;
-    if (selectedThread != null &&
-        threadOrder.contains(selectedThread) &&
-        !_isThreadCompleted(filteredItems, selectedThread)) {
-      return selectedThread;
-    }
-
-    for (final thread in threadOrder) {
-      if (!_isThreadCompleted(filteredItems, thread)) {
-        return thread;
-      }
-    }
-
-    return threadOrder.first;
-  }
-
   List<ScheduleListEntry> _buildThreadEntries(
     List<ScheduleItem> items,
     int? threadIndex,
@@ -631,14 +589,9 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
         return;
       }
 
-      var nextThreadFilter = effectiveThreadFilter;
-      if (threadOrder.isNotEmpty && nextThreadFilter == null) {
-        nextThreadFilter = threadOrder.first;
-      }
-      if (nextThreadFilter != null && _isThreadCompleted(state.schedule, nextThreadFilter)) {
-        nextThreadFilter = _nextVisibleThread(threadOrder, nextThreadFilter) ?? nextThreadFilter;
-      }
-
+      final nextThreadFilter = threadOrder.isNotEmpty && effectiveThreadFilter == null
+          ? threadOrder.first
+          : effectiveThreadFilter;
       final nextTypeFilter = _effectiveTypeFilter(state.schedule, nextThreadFilter);
       if (_selectedThreadFilter == nextThreadFilter &&
           _selectedTypeFilter == nextTypeFilter) {
