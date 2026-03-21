@@ -239,10 +239,77 @@ class AppController extends StateNotifier<AppState> {
     _configWriteDebounceTimer?.cancel();
     _configWriteDebounceTimer = null;
 
-    await _capture.stopBuffer();
+    await _finalizeActiveRecordingOnShutdown();
     await _preview.stop();
     await _testRecorder.stop(state.config, _appendLog);
     await _judgeWebServer.stop();
+  }
+
+  Future<void> _finalizeActiveRecordingOnShutdown() async {
+    final activeIndex = state.schedule.indexWhere((entry) => entry.status == ScheduleItemStatus.active);
+    final markStartedAt = state.currentMarkStartedAt;
+
+    if (!state.isRecordingMarked || markStartedAt == null || activeIndex == -1) {
+      await _capture.stopBuffer();
+      return;
+    }
+
+    final item = state.schedule[activeIndex];
+    final stop = DateTime.now();
+
+    await _capture.stopBuffer();
+
+    try {
+      final out = await _capture.exportClip(
+        config: state.config,
+        start: markStartedAt,
+        stop: stop,
+        id: item.id,
+        fio: item.fio,
+        city: item.city,
+        onLog: _appendLog,
+      );
+
+      final updated = [...state.schedule];
+      updated[activeIndex] = item.copyWith(
+        status: ScheduleItemStatus.done,
+        startedAt: markStartedAt,
+      );
+
+      await _clipIndex.add(
+        participantId: item.id,
+        fio: item.fio,
+        city: item.city,
+        apparatus: item.apparatus,
+        path: out,
+        threadIndex: item.threadIndex,
+        typeIndex: item.typeIndex,
+      );
+
+      state = state.copyWith(
+        schedule: updated,
+        isRecordingMarked: false,
+        clearMarkStart: true,
+      );
+      await _updateScheduleItemInFile(updated[activeIndex]);
+      _appendLog('Shutdown complete, active clip saved: $out');
+    } catch (error) {
+      final updated = [...state.schedule];
+      updated[activeIndex] = item.copyWith(
+        status: item.isPinnedToPostponed
+            ? ScheduleItemStatus.postponed
+            : ScheduleItemStatus.pending,
+        clearStartedAt: true,
+      );
+
+      state = state.copyWith(
+        schedule: updated,
+        isRecordingMarked: false,
+        clearMarkStart: true,
+      );
+      await _updateScheduleItemInFile(updated[activeIndex]);
+      _appendLog('Failed to save active clip during shutdown: $error');
+    }
   }
 
   Future<void> setLanguage(String languageCode) async {
