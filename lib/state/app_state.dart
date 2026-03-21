@@ -1,6 +1,7 @@
 import '../domain/models/app_config.dart';
 import '../domain/models/capture_device.dart';
 import '../domain/models/ffmpeg_issue.dart';
+import '../domain/models/judge_web_server_status.dart';
 import '../domain/models/schedule_item.dart';
 
 enum AppMode { setup, work }
@@ -20,6 +21,7 @@ class AppState {
     this.isTestRecording = false,
     this.isScheduleInputVisible = true,
     this.ffmpegIssue,
+    this.judgeWebServerStatus = const JudgeWebServerStatus(),
   });
 
   final AppMode mode;
@@ -35,6 +37,7 @@ class AppState {
   final bool isTestRecording;
   final bool isScheduleInputVisible;
   final FfmpegIssue? ffmpegIssue;
+  final JudgeWebServerStatus judgeWebServerStatus;
 
   ScheduleItem? get selectedItem {
     final index = selectedIndex;
@@ -59,6 +62,7 @@ class AppState {
     bool? isScheduleInputVisible,
     FfmpegIssue? ffmpegIssue,
     bool clearFfmpegIssue = false,
+    JudgeWebServerStatus? judgeWebServerStatus,
   }) {
     return AppState(
       mode: mode ?? this.mode,
@@ -74,6 +78,7 @@ class AppState {
       isTestRecording: isTestRecording ?? this.isTestRecording,
       isScheduleInputVisible: isScheduleInputVisible ?? this.isScheduleInputVisible,
       ffmpegIssue: clearFfmpegIssue ? null : (ffmpegIssue ?? this.ffmpegIssue),
+      judgeWebServerStatus: judgeWebServerStatus ?? this.judgeWebServerStatus,
     );
   }
 }
