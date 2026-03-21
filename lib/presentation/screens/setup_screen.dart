@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/models/capture_device.dart';
 import '../../localization/app_localizations.dart';
 import '../../state/app_controller.dart';
+import '../widgets/judge_server_status.dart';
 import '../widgets/log_panel.dart';
 
 class SetupScreen extends ConsumerWidget {
@@ -67,22 +68,32 @@ class SetupScreen extends ConsumerWidget {
       appBar: AppBar(
         title: Row(
           children: [
-            Text(AppLocalizations.tr(lang, 'setupTitle')),
-            const SizedBox(width: 5),
-            Text(AppLocalizations.tr(lang, 'setupVersion'), 
-              style:
-              TextStyle(
-                color: Colors.grey.shade600,
-                fontSize: 13)
+            Expanded(
+              child: Wrap(
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 5,
+                runSpacing: 6,
+                children: [
+                  Text(AppLocalizations.tr(lang, 'setupTitle')),
+                  Text(
+                    AppLocalizations.tr(lang, 'setupVersion'),
+                    style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                  ),
+                  Text(
+                    cfg.version,
+                    style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                  ),
+                  JudgeServerStatusIndicator(
+                    languageCode: lang,
+                    status: state.judgeWebServerStatus,
+                    isSetupMode: true,
+                  ),
+                ],
               ),
-            Text(cfg.version,
-              style:
-              TextStyle(
-                color: Colors.grey.shade600,
-                fontSize: 13))
-            ],
-          )
+            ),
+          ],
         ),
+      ),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -393,50 +404,6 @@ class SetupScreen extends ConsumerWidget {
                   ),
                 ),
               ],
-            ),
-            const SizedBox(height: 12),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: const Color(0xFF111827),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFF374151)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    AppLocalizations.tr(lang, 'judgeWebPanelTitle'),
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(AppLocalizations.tr(lang, 'judgeWebPanelDescription')),
-                  const SizedBox(height: 12),
-                  Text(
-                    state.judgeWebServerStatus.isRunning
-                        ? AppLocalizations.tr(lang, 'judgeWebServerRunning')
-                        : AppLocalizations.tr(lang, 'judgeWebServerStopped'),
-                    style: TextStyle(
-                      color: state.judgeWebServerStatus.isRunning ? Colors.greenAccent : Colors.orangeAccent,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  if (state.judgeWebServerStatus.errorMessage != null) ...[
-                    const SizedBox(height: 8),
-                    Text(
-                      '${AppLocalizations.tr(lang, 'judgeWebServerError')}: ${state.judgeWebServerStatus.errorMessage}',
-                      style: const TextStyle(color: Colors.redAccent),
-                    ),
-                  ],
-                  if (state.judgeWebServerStatus.urls.isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    Text(AppLocalizations.tr(lang, 'judgeWebOpenHint')),
-                    const SizedBox(height: 4),
-                    ...state.judgeWebServerStatus.urls.map((url) => SelectableText(url)),
-                  ],
-                ],
-              ),
             ),
             const SizedBox(height: 12),
             FilledButton(

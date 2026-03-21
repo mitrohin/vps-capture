@@ -13,6 +13,7 @@ import '../../domain/models/schedule_item.dart';
 import '../../state/app_controller.dart';
 import '../../state/app_state.dart';
 import '../widgets/gif_titres.dart';
+import '../widgets/judge_server_status.dart';
 import '../widgets/schedule_list.dart';
 
 @visibleForTesting
@@ -726,20 +727,31 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
               foregroundColor: Colors.white,
               title: Row(
                 children: [
-                  Text(AppLocalizations.tr(lang, 'workTitle')),
-                  const SizedBox(width: 5),
-                  Text(AppLocalizations.tr(lang, 'setupVersion'), 
-                    style:
-                    TextStyle(
-                      color: Colors.grey.shade600,
-                      fontSize: 13)
+                  Expanded(
+                    child: Wrap(
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 5,
+                      runSpacing: 6,
+                      children: [
+                        Text(AppLocalizations.tr(lang, 'workTitle')),
+                        Text(
+                          AppLocalizations.tr(lang, 'setupVersion'),
+                          style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                        ),
+                        Text(
+                          state.config.version,
+                          style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                        ),
+                        JudgeServerStatusIndicator(
+                          languageCode: lang,
+                          status: state.judgeWebServerStatus,
+                          isSetupMode: false,
+                          showDetails: true,
+                        ),
+                      ],
                     ),
-                  Text(state.config.version,
-                    style:
-                    TextStyle(
-                      color: Colors.grey.shade600,
-                      fontSize: 13))
-                ]
+                  ),
+                ],
               ),
               actions: [
                 PopupMenuButton<String>(
@@ -769,54 +781,6 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
             ),
             body: Column(
               children: [
-                Container(
-                  width: double.infinity,
-                  margin: const EdgeInsets.fromLTRB(8, 8, 8, 0),
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF111827),
-                    border: Border.all(color: const Color(0xFF374151)),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        AppLocalizations.tr(lang, 'judgeWebPanelTitle'),
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        state.judgeWebServerStatus.isRunning
-                            ? AppLocalizations.tr(lang, 'judgeWebServerRunning')
-                            : AppLocalizations.tr(lang, 'judgeWebServerStopped'),
-                        style: TextStyle(
-                          color: state.judgeWebServerStatus.isRunning ? Colors.greenAccent : Colors.orangeAccent,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      if (state.judgeWebServerStatus.urls.isNotEmpty) ...[
-                        const SizedBox(height: 6),
-                        Text(AppLocalizations.tr(lang, 'judgeWebOpenHint')),
-                        const SizedBox(height: 4),
-                        Wrap(
-                          spacing: 12,
-                          runSpacing: 6,
-                          children: state.judgeWebServerStatus.urls
-                              .map((url) => SelectableText(url, style: const TextStyle(color: Colors.lightBlueAccent)))
-                              .toList(),
-                        ),
-                      ],
-                      if (state.judgeWebServerStatus.errorMessage != null) ...[
-                        const SizedBox(height: 6),
-                        Text(
-                          '${AppLocalizations.tr(lang, 'judgeWebServerError')}: ${state.judgeWebServerStatus.errorMessage}',
-                          style: const TextStyle(color: Colors.redAccent),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
                 Expanded(
                   child: Container(
                     color: Colors.black,
