@@ -464,7 +464,12 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
                 ),
                 OutlinedButton.icon(
                   style: subtleActionStyle,
-                  onPressed: (state.isLoading || cfg.ffplayPath == null || cfg.ffmpegPath == null || cfg.sourceKind == null)
+                  onPressed: (state.isLoading ||
+                          cfg.ffplayPath == null ||
+                          cfg.ffmpegPath == null ||
+                          cfg.sourceKind == null ||
+                          cfg.selectedVideoDevice == null ||
+                          cfg.selectedAudioDevice == null)
                       ? null
                       : controller.togglePreview,
                   icon: Icon(state.isPreviewRunning ? Icons.visibility_off_outlined : Icons.visibility_outlined),

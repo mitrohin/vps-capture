@@ -5,6 +5,7 @@ import 'package:path/path.dart' as p;
 
 import '../../domain/models/app_config.dart';
 import '../storage/app_paths.dart';
+import '../storage/file_namer.dart';
 import 'capture_service.dart';
 import 'clip_exporter.dart';
 
@@ -14,7 +15,7 @@ class TestRecordService {
   final CaptureService _captureService;
   final ClipExporter _clipExporter;
   DateTime? _startTime;
-  
+
   bool get isRunning => _captureService.isBufferRunning;
 
   Future<void> start(
@@ -42,23 +43,28 @@ class TestRecordService {
     await _captureService.stopBuffer();
     onLog('Creating test recording file...');
     try {
-      final executablePath = AppPaths.getExecutableDirectory();
-      final testDir = Directory(p.join(executablePath, 'test'));
-      if (!await testDir.exists()) {
-        await testDir.create(recursive: true);
-        onLog('Created test directory: ${testDir.path}');
+      final outputDirPath = config.outputDir;
+      if (outputDirPath == null || outputDirPath.trim().isEmpty) {
+        onLog('Cannot save test recording: output directory is not configured');
+        return null;
       }
-      final timestamp = _startTime!.toIso8601String()
-          .replaceAll(':', '-')
-          .replaceAll('.', '-')
-          .substring(0, 19);
-      final outputPath = p.join(testDir.path, 'test_recording_$timestamp.mp4');
+      final outputDir = Directory(outputDirPath);
+      if (!await outputDir.exists()) {
+        await outputDir.create(recursive: true);
+        onLog('Created output directory for test recording: ${outputDir.path}');
+      }
+      final outputPath = p.join(
+        outputDir.path,
+        FileNamer.testRecordingName(at: _startTime),
+      );
       final segmentsDir = await AppPaths().segmentsDir();
       final files = <File>[];
       await for (final entity in segmentsDir.list()) {
         if (entity is File && entity.path.endsWith('.ts')) {
           final stat = await entity.stat();
-          if (stat.modified.isAfter(_startTime!.subtract(const Duration(seconds: 1))) && 
+          if (stat.modified.isAfter(
+                _startTime!.subtract(const Duration(seconds: 1)),
+              ) &&
               stat.modified.isBefore(stopTime.add(const Duration(seconds: 1)))) {
             files.add(entity);
           }
@@ -75,11 +81,16 @@ class TestRecordService {
       await listFile.writeAsString(content);
       onLog('Concatenating segments...');
       final args = [
-        '-f', 'concat',
-        '-safe', '0',
-        '-i', listFile.path,
-        '-c', 'copy',
-        '-movflags', config.movFlags,
+        '-f',
+        'concat',
+        '-safe',
+        '0',
+        '-i',
+        listFile.path,
+        '-c',
+        'copy',
+        '-movflags',
+        config.movFlags,
         '-y',
         outputPath,
       ];
@@ -100,9 +111,7 @@ class TestRecordService {
       } else {
         onLog('FFmpeg failed with code: $exitCode');
       }
-      
       return null;
-      
     } catch (e, stack) {
       onLog('Error creating test recording: $e');
       onLog('Stack: $stack');
