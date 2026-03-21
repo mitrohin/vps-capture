@@ -1,15 +1,53 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:window_manager/window_manager.dart';
 
 import '../localization/app_localizations.dart';
 import '../presentation/screens/root_screen.dart';
 import '../state/app_controller.dart';
 
-class GymCaptureApp extends ConsumerWidget {
+class GymCaptureApp extends ConsumerStatefulWidget {
   const GymCaptureApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<GymCaptureApp> createState() => _GymCaptureAppState();
+}
+
+class _GymCaptureAppState extends ConsumerState<GymCaptureApp> with WindowListener {
+  bool _isClosing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    windowManager.addListener(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await windowManager.setPreventClose(true);
+    });
+  }
+
+  @override
+  void dispose() {
+    windowManager.removeListener(this);
+    super.dispose();
+  }
+
+  @override
+  Future<void> onWindowClose() async {
+    if (_isClosing) {
+      return;
+    }
+
+    _isClosing = true;
+    try {
+      await ref.read(appControllerProvider.notifier).shutdown();
+      await windowManager.destroy();
+    } finally {
+      _isClosing = false;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final state = ref.watch(appControllerProvider);
     final lang = state.config.languageCode;
 
