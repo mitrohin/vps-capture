@@ -25,6 +25,46 @@ int? normalizeDropdownValue(int? selectedValue, Iterable<int> availableValues) {
   return availableValues.contains(selectedValue) ? selectedValue : null;
 }
 
+bool _isReadyForCurrentFlow(ScheduleItem item) =>
+    item.status == ScheduleItemStatus.pending ||
+    item.status == ScheduleItemStatus.postponed ||
+    item.status == ScheduleItemStatus.active;
+
+@visibleForTesting
+int countReadyItemsForThread(
+  List<ScheduleItem> items, {
+  required int? threadIndex,
+  required int? typeIndex,
+}) {
+  return items.where((item) {
+    final threadMatches = threadIndex == null || item.threadIndex == threadIndex;
+    final typeMatches = typeIndex == null || item.typeIndex == typeIndex;
+    return threadMatches && typeMatches && _isReadyForCurrentFlow(item);
+  }).length;
+}
+
+@visibleForTesting
+int? findNextThreadWithReadyItems(
+  List<ScheduleItem> items,
+  List<int> threadOrder, {
+  required int currentThread,
+  required int? typeIndex,
+}) {
+  final currentIndex = threadOrder.indexOf(currentThread);
+  if (currentIndex == -1) {
+    return null;
+  }
+
+  for (var index = currentIndex + 1; index < threadOrder.length; index++) {
+    final candidate = threadOrder[index];
+    if (countReadyItemsForThread(items, threadIndex: candidate, typeIndex: typeIndex) > 0) {
+      return candidate;
+    }
+  }
+
+  return null;
+}
+
 class WorkScreen extends ConsumerStatefulWidget {
   const WorkScreen({super.key});
 
@@ -45,7 +85,11 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
 
   void _updateSelectedIndexAfterFilterChange() {
     final state = ref.read(appControllerProvider);
-    final filteredItems = _getFilteredItems(state.schedule);
+    _selectPrioritizedItem(state.schedule);
+  }
+
+  void _selectPrioritizedItem(List<ScheduleItem> schedule) {
+    final filteredItems = _getFilteredItems(schedule);
     if (filteredItems.isEmpty) {
       return;
     }
@@ -57,10 +101,54 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
         orElse: () => filteredItems.first,
       ),
     );
-    final globalIndex = state.schedule.indexWhere((item) => item.id == prioritizedItem.id);
+    final globalIndex = schedule.indexWhere((item) => item.id == prioritizedItem.id);
     if (globalIndex != -1) {
       ref.read(appControllerProvider.notifier).selectIndex(globalIndex);
     }
+  }
+
+  void _maybeAdvanceThreadFilter(AppState? previous, AppState next) {
+    if (!mounted) {
+      return;
+    }
+
+    final currentThreadFilter = _effectiveThreadFilter(next.schedule);
+    if (currentThreadFilter == null) {
+      return;
+    }
+
+    final currentTypeFilter = _effectiveTypeFilter(next.schedule, currentThreadFilter);
+    final previousSchedule = previous?.schedule ?? const <ScheduleItem>[];
+    final previousReadyCount = countReadyItemsForThread(
+      previousSchedule,
+      threadIndex: currentThreadFilter,
+      typeIndex: currentTypeFilter,
+    );
+    final nextReadyCount = countReadyItemsForThread(
+      next.schedule,
+      threadIndex: currentThreadFilter,
+      typeIndex: currentTypeFilter,
+    );
+
+    if (previousReadyCount <= 0 || nextReadyCount > 0) {
+      return;
+    }
+
+    final nextThreadFilter = findNextThreadWithReadyItems(
+      next.schedule,
+      _getAvailableThreads(next.schedule),
+      currentThread: currentThreadFilter,
+      typeIndex: currentTypeFilter,
+    );
+    if (nextThreadFilter == null || nextThreadFilter == currentThreadFilter) {
+      return;
+    }
+
+    setState(() {
+      _selectedThreadFilter = nextThreadFilter;
+      _selectedTypeFilter = _effectiveTypeFilter(next.schedule, nextThreadFilter);
+    });
+    _selectPrioritizedItem(next.schedule);
   }
   
   void _handleStartWithGif(int globalIndex) {
@@ -545,6 +633,8 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
     final lang = state.config.languageCode;
 
     ref.listen<AppState>(appControllerProvider, (previous, next) {
+      _maybeAdvanceThreadFilter(previous, next);
+
       final previousId = previous?.ffmpegIssue?.id;
       final nextIssue = next.ffmpegIssue;
       if (!mounted || nextIssue == null || _isFfmpegDialogVisible || previousId == nextIssue.id) {
