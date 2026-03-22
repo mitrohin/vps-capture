@@ -6,7 +6,7 @@ import 'package:path_provider/path_provider.dart';
 class AppPaths {
   Future<Directory> appSupportDir() async {
     if (Platform.isWindows) {
-      final dir = Directory(p.join(getExecutableDirectory(), 'gym_capture_data'));
+      final dir = Directory(getExecutableDirectory());
       if (!await dir.exists()) await dir.create(recursive: true);
       return dir;
     }
@@ -31,6 +31,23 @@ class AppPaths {
 
   Future<File> concatListFile() async {
     return File(p.join((await appSupportDir()).path, 'concat_list.txt'));
+  }
+
+  Future<File> configFile() async {
+    return File(p.join((await appSupportDir()).path, 'config.json'));
+  }
+
+  Future<File?> legacyWindowsSharedPreferencesFile() async {
+    if (!Platform.isWindows) {
+      return null;
+    }
+
+    final appDataDir = Platform.environment['APPDATA'];
+    if (appDataDir == null || appDataDir.isEmpty) {
+      return null;
+    }
+
+    return File(p.join(appDataDir, 'com.example', 'vps_capture', 'shared_preferences.json'));
   }
 
   static String getExecutableDirectory() {

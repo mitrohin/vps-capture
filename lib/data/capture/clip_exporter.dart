@@ -29,6 +29,12 @@ class ClipExporter {
     );
     if (files.isEmpty) throw Exception('No segments found for selected time range.');
 
+    final trimDuration = Duration(milliseconds: config.recordingStartTrimMillis.clamp(0, 60 * 1000));
+    final clipDuration = stop.difference(start) - trimDuration;
+    if (clipDuration <= Duration.zero) {
+      throw Exception('The configured start trim removes the whole clip.');
+    }
+
     final listFile = await _paths.concatListFile();
     final content = files.map((f) => "file '${f.path.replaceAll("'", "''")}'").join('\n');
     await listFile.writeAsString(content);
@@ -36,33 +42,43 @@ class ClipExporter {
     final outputName = FileNamer.outputClipName(id:id ,fio: fio, city: city);
     final outputFolder = getOutputDir(config.outputDir!, id);
     final outputPath = p.join(outputFolder!, outputName);
+    final trimSeconds = _formatFfmpegSeconds(trimDuration);
+    final clipSeconds = _formatFfmpegSeconds(clipDuration);
 
-    final copyArgs = [
-      '-f',
-      'concat',
-      '-safe',
-      '0',
-      '-i',
-      listFile.path,
-      '-c',
-      'copy',
-      '-movflags',
-      config.movFlags,
-      outputPath,
-      '-y',
-    ];
+    if (trimDuration == Duration.zero) {
+      final copyArgs = [
+        '-f',
+        'concat',
+        '-safe',
+        '0',
+        '-i',
+        listFile.path,
+        '-c',
+        'copy',
+        '-movflags',
+        config.movFlags,
+        outputPath,
+        '-y',
+      ];
 
-    final copyCode = await _run(config.ffmpegPath!, copyArgs, onLog);
-    if (copyCode == 0) return outputPath;
+      final copyCode = await _run(config.ffmpegPath!, copyArgs, onLog);
+      if (copyCode == 0) return outputPath;
+    }
 
     final codec = config.codec ?? _defaultCodec();
-    final encodeArgs = [
+    final reencodeArgs = [
       '-f',
       'concat',
       '-safe',
       '0',
       '-i',
       listFile.path,
+      if (trimDuration > Duration.zero) ...[
+        '-ss',
+        trimSeconds,
+      ],
+      '-t',
+      clipSeconds,
       '-c:v',
       codec,
       if (codec == 'libx264') ...['-preset', config.ffmpegPreset],
@@ -78,7 +94,7 @@ class ClipExporter {
       '-y',
     ];
 
-    final reencodeCode = await _run(config.ffmpegPath!, encodeArgs, onLog);
+    final reencodeCode = await _run(config.ffmpegPath!, reencodeArgs, onLog);
     if (reencodeCode != 0) throw Exception('Export failed in both copy and re-encode modes.');
 
     return outputPath;
@@ -131,10 +147,15 @@ class ClipExporter {
     if (Platform.isMacOS) return 'h264_videotoolbox';
     return 'libx264';
   }
+
+  String _formatFfmpegSeconds(Duration duration) {
+    return (duration.inMicroseconds / Duration.microsecondsPerSecond).toStringAsFixed(3);
+  }
+
   String? getOutputDir(String mainPath, String id) {
     final idThread = id.split('-')[0];
     final idType = id.split('-')[1];
-    try{
+    try {
       final directory = Directory(mainPath);
       final folders = directory.listSync().whereType<Directory>().toList();
       for (var folder in folders) {
@@ -143,13 +164,12 @@ class ClipExporter {
           final dirThread = Directory(folder.path);
           if (!dirThread.existsSync()) continue;
           final typeFolders = dirThread.listSync().whereType<Directory>().toList();
-          return typeFolders[int.parse(idType)-1].path;
+          return typeFolders[int.parse(idType) - 1].path;
         } else {
           continue;
         }
       }
-    }
-    catch (e) {
+    } catch (e) {
       return mainPath;
     }
     return mainPath;

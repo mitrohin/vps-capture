@@ -81,6 +81,12 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
     }
   }
 
+  double? _parseSecondsValue(String value) {
+    final normalized = value.replaceAll(',', '.').trim();
+    if (normalized.isEmpty) return null;
+    return double.tryParse(normalized);
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(appControllerProvider);
@@ -426,6 +432,25 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
                       final parsed = int.tryParse(value);
                       if (parsed != null && parsed >= 0) {
                         await controller.updateConfig(cfg.copyWith(preRollSeconds: parsed));
+                      }
+                    },
+                  ),
+                ),
+                SizedBox(
+                  width: 180,
+                  child: TextFormField(
+                    initialValue: (cfg.recordingStartTrimMillis / 1000).toStringAsFixed(1),
+                    decoration: InputDecoration(
+                      labelText: AppLocalizations.tr(lang, 'recordingStartTrimSec'),
+                      border: const OutlineInputBorder(),
+                    ),
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    onFieldSubmitted: (value) async {
+                      final parsed = _parseSecondsValue(value);
+                      if (parsed != null && parsed >= 0) {
+                        await controller.updateConfig(
+                          cfg.copyWith(recordingStartTrimMillis: (parsed * 1000).round()),
+                        );
                       }
                     },
                   ),
