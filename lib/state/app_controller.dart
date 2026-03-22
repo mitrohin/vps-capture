@@ -7,7 +7,6 @@ import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../localization/app_localizations.dart';
 
@@ -25,6 +24,7 @@ import '../data/schedule/schedule_parser.dart';
 import '../data/services/config_services.dart';
 import '../data/storage/app_paths.dart';
 import '../data/storage/file_namer.dart';
+import '../data/storage/json_config_store.dart';
 import '../data/web/judge_web_server.dart';
 import '../data/web/recorded_clip_index.dart';
 import '../domain/models/app_config.dart';
@@ -55,7 +55,7 @@ final appControllerProvider = StateNotifierProvider<AppController, AppState>((re
 });
 
 class AppController extends StateNotifier<AppState> {
-  static const String currentAppVersion = '2.2.5';
+  static const String currentAppVersion = '2.2.6';
 
   AppController(
     this._locator,
@@ -82,14 +82,19 @@ class AppController extends StateNotifier<AppState> {
   Timer? _configWriteDebounceTimer;
   Future<void>? _shutdownFuture;
 
-  SharedPreferences? _prefs;
+  final AppPaths _paths = AppPaths();
+  JsonConfigStore? _prefs;
 
   Future<void> initialize() async {
-    _prefs = await SharedPreferences.getInstance();
-    final hasCompletedFirstLaunch = _prefs!.getBool('hasCompletedFirstLaunch') ?? false;
+    final prefs = JsonConfigStore(_paths);
+    await prefs.load();
+    await _migrateLegacyWindowsSharedPreferencesIfNeeded(prefs);
+    _prefs = prefs;
+
+    final hasCompletedFirstLaunch = prefs.getBool('hasCompletedFirstLaunch') ?? false;
 
     if (!hasCompletedFirstLaunch) {
-      await _prefs!.setBool('hasCompletedFirstLaunch', true);
+      await prefs.setAll({'hasCompletedFirstLaunch': true});
     }
 
     final located = await _locator.locate();
@@ -170,26 +175,29 @@ class AppController extends StateNotifier<AppState> {
   Future<void> _persistConfig(AppConfig config) async {
     final prefs = _prefs;
     if (prefs == null) return;
-    await prefs.setString('ffmpegPath', config.ffmpegPath ?? '');
-    await prefs.setString('ffplayPath', config.ffplayPath ?? '');
-    await prefs.setString('outputDir', config.outputDir ?? '');
-    await prefs.setString('sourceKind', config.sourceKind?.name ?? '');
-    await prefs.setString('selectedVideoDevice', config.selectedVideoDevice == null ? '' : jsonEncode(config.selectedVideoDevice!.toJson()));
-    await prefs.setString('selectedAudioDevice', config.selectedAudioDevice == null ? '' : jsonEncode(config.selectedAudioDevice!.toJson()));
-    await prefs.setString('codec', config.codec ?? '');
-    await prefs.setString('videoBitrate', config.videoBitrate);
-    await prefs.setString('audioBitrate', config.audioBitrate);
-    await prefs.setString('ffmpegPreset', config.ffmpegPreset);
-    await prefs.setString('movFlags', config.movFlags);
-    await prefs.setInt('fps', config.fps);
-    await prefs.setInt('segmentSeconds', config.segmentSeconds);
-    await prefs.setInt('bufferMinutes', config.bufferMinutes);
-    await prefs.setInt('preRollSeconds', config.preRollSeconds);
-    await prefs.setString('languageCode', config.languageCode);
-    await prefs.setString('selectedGif', config.selectedGif ?? 'blue');
-    await prefs.setString('gifTitleThemes', jsonEncode(ConfigService.encodeTitleThemes(config.resolvedGifTitleThemes)));
-    await prefs.setString('version', config.version);
-    await prefs.setInt('webServerPort', config.webServerPort);
+    await prefs.setAll({
+      'ffmpegPath': config.ffmpegPath ?? '',
+      'ffplayPath': config.ffplayPath ?? '',
+      'outputDir': config.outputDir ?? '',
+      'sourceKind': config.sourceKind?.name ?? '',
+      'selectedVideoDevice': config.selectedVideoDevice == null ? '' : jsonEncode(config.selectedVideoDevice!.toJson()),
+      'selectedAudioDevice': config.selectedAudioDevice == null ? '' : jsonEncode(config.selectedAudioDevice!.toJson()),
+      'codec': config.codec ?? '',
+      'videoBitrate': config.videoBitrate,
+      'audioBitrate': config.audioBitrate,
+      'ffmpegPreset': config.ffmpegPreset,
+      'movFlags': config.movFlags,
+      'fps': config.fps,
+      'segmentSeconds': config.segmentSeconds,
+      'bufferMinutes': config.bufferMinutes,
+      'preRollSeconds': config.preRollSeconds,
+      'recordingStartTrimMillis': config.recordingStartTrimMillis,
+      'languageCode': config.languageCode,
+      'selectedGif': config.selectedGif ?? 'blue',
+      'gifTitleThemes': jsonEncode(ConfigService.encodeTitleThemes(config.resolvedGifTitleThemes)),
+      'version': config.version,
+      'webServerPort': config.webServerPort,
+    });
   }
 
   Future<void> resetAllSettings() async {
@@ -205,7 +213,7 @@ class AppController extends StateNotifier<AppState> {
       final prefs = _prefs;
       if (prefs != null) {
         await prefs.clear();
-        await prefs.setBool('hasCompletedFirstLaunch', true);
+        await prefs.setAll({'hasCompletedFirstLaunch': true});
       }
 
       await _persistConfig(defaultConfig);
@@ -1053,6 +1061,46 @@ class AppController extends StateNotifier<AppState> {
     return from;
   }
 
+  Future<void> _migrateLegacyWindowsSharedPreferencesIfNeeded(JsonConfigStore prefs) async {
+    if (!Platform.isWindows || !prefs.isEmpty) {
+      return;
+    }
+
+    final legacyFile = await _paths.legacyWindowsSharedPreferencesFile();
+    if (legacyFile == null || !await legacyFile.exists()) {
+      return;
+    }
+
+    try {
+      final raw = await legacyFile.readAsString();
+      if (raw.trim().isEmpty) {
+        return;
+      }
+
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map) {
+        return;
+      }
+
+      final migrated = <String, dynamic>{};
+      decoded.forEach((key, value) {
+        final rawKey = key.toString();
+        final normalizedKey = rawKey.startsWith('flutter.') ? rawKey.substring(8) : rawKey;
+        migrated[normalizedKey] = value;
+      });
+
+      if (migrated.isEmpty) {
+        return;
+      }
+
+      await prefs.setAll(migrated);
+      await legacyFile.delete();
+      _appendLog('Migrated legacy shared_preferences.json to config.json in the application folder.');
+    } catch (error) {
+      _appendLog('Unable to migrate legacy shared_preferences.json: $error');
+    }
+  }
+
   AppConfig _buildConfigFromPrefs(LocatedFfmpeg located) {
     final prefs = _prefs!;
     final defaultConfig = _defaultConfig(located);
@@ -1072,6 +1120,7 @@ class AppController extends StateNotifier<AppState> {
       segmentSeconds: prefs.getInt('segmentSeconds') ?? defaultConfig.segmentSeconds,
       bufferMinutes: prefs.getInt('bufferMinutes') ?? defaultConfig.bufferMinutes,
       preRollSeconds: prefs.getInt('preRollSeconds') ?? defaultConfig.preRollSeconds,
+      recordingStartTrimMillis: prefs.getInt('recordingStartTrimMillis') ?? defaultConfig.recordingStartTrimMillis,
       languageCode: _stringOrNull(prefs.getString('languageCode')) ?? defaultConfig.languageCode,
       selectedGif: prefs.getString('selectedGif') ?? defaultConfig.selectedGif,
       gifTitleThemes: ConfigService.decodeTitleThemes(_decodeJsonMap(prefs.getString('gifTitleThemes'))),
@@ -1098,6 +1147,7 @@ class AppController extends StateNotifier<AppState> {
       File(p.join(storageDir.path, 'schedule.json')),
       File(p.join(storageDir.path, 'config.json')),
       File(p.join(storageDir.path, 'recorded_clips.json')),
+      if (Platform.isWindows) ...(await Future.wait([_paths.legacyWindowsSharedPreferencesFile()])).whereType<File>(),
       if (Platform.isMacOS)
         ...AppPaths.getMacOSLegacyScheduleDirectories()
             .map((dirPath) => File(p.join(dirPath, 'schedule.json'))),
@@ -1111,7 +1161,7 @@ class AppController extends StateNotifier<AppState> {
   }
 
   Future<void> _clearSegmentsDirectory() async {
-    final segmentsDir = await AppPaths().segmentsDir();
+    final segmentsDir = await _paths.segmentsDir();
     if (!await segmentsDir.exists()) {
       return;
     }
@@ -1122,7 +1172,7 @@ class AppController extends StateNotifier<AppState> {
   }
 
   Future<void> _deleteConcatListFile() async {
-    final concatListFile = await AppPaths().concatListFile();
+    final concatListFile = await _paths.concatListFile();
     if (await concatListFile.exists()) {
       await concatListFile.delete();
     }
@@ -1212,6 +1262,7 @@ class AppController extends StateNotifier<AppState> {
       ..writeln('- segmentSeconds: ${config.segmentSeconds}')
       ..writeln('- bufferMinutes: ${config.bufferMinutes}')
       ..writeln('- preRollSeconds: ${config.preRollSeconds}')
+      ..writeln('- recordingStartTrimMillis: ${config.recordingStartTrimMillis}')
       ..writeln('- videoDevice: ${video == null ? 'not set' : '${video.name} [${video.id}]'}')
       ..writeln(
         '- audioDevice: ${audio == null ? 'not set' : '${audio.audioName ?? audio.name} [${audio.audioId ?? audio.id}]'}',
