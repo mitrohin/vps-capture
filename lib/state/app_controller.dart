@@ -55,7 +55,7 @@ final appControllerProvider = StateNotifierProvider<AppController, AppState>((re
 });
 
 class AppController extends StateNotifier<AppState> {
-  static const String currentAppVersion = '2.2.5';
+  static const String currentAppVersion = '2.2.6';
 
   AppController(
     this._locator,
