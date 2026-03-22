@@ -178,21 +178,21 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
               children: [
                 OutlinedButton(
                   onPressed: () async {
-                    final path = await FilePicker.platform.pickFiles(dialogTitle: 'Pick ffmpeg binary').then((v) => v?.files.single.path);
-                    if (path != null) {
-                      await controller.updateConfig(cfg.copyWith(ffmpegPath: path));
-                    }
-                  },
-                  child: Text(AppLocalizations.tr(lang, 'pickFfmpeg')),
-                ),
-                OutlinedButton(
-                  onPressed: () async {
                     final path = await FilePicker.platform.getDirectoryPath(dialogTitle: 'Select output folder');
                     if (path != null) {
                       await controller.updateConfig(cfg.copyWith(outputDir: path));
                     }
                   },
                   child: Text(AppLocalizations.tr(lang, 'chooseOutputFolder')),
+                ),
+                OutlinedButton(
+                  onPressed: () async {
+                    final path = await FilePicker.platform.pickFiles(dialogTitle: 'Pick ffmpeg binary').then((v) => v?.files.single.path);
+                    if (path != null) {
+                      await controller.updateConfig(cfg.copyWith(ffmpegPath: path));
+                    }
+                  },
+                  child: Text(AppLocalizations.tr(lang, 'pickFfmpeg')),
                 ),
                 OutlinedButton(
                   onPressed: () async {
