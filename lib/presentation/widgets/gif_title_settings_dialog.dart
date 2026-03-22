@@ -208,30 +208,42 @@ class _GifTitleSettingsDialogState extends ConsumerState<GifTitleSettingsDialog>
         final fioEditor = _EditorSection(
           title: AppLocalizations.tr(lang, 'gifTitleNameSection'),
           fontScale: currentTheme.fioFontScale,
+          horizontalPosition: currentTheme.fioLeft,
+          verticalPosition: currentTheme.fioBottom,
           min: 0.08,
           max: 0.24,
           divisions: 16,
           sizeLabel: AppLocalizations.tr(lang, 'gifTitleTextSize'),
           colorLabel: AppLocalizations.tr(lang, 'gifTitleTextColor'),
+          horizontalLabel: AppLocalizations.tr(lang, 'gifTitleHorizontalPosition'),
+          verticalLabel: AppLocalizations.tr(lang, 'gifTitleVerticalPosition'),
           controller: _fioColorController,
           selectedColor: currentTheme.fioColor,
           presetColors: _presetColors,
           onScaleChanged: (value) => _updateTheme((theme) => theme.copyWith(fioFontScale: value)),
+          onHorizontalChanged: (value) => _updateTheme((theme) => theme.copyWith(fioLeft: value)),
+          onVerticalChanged: (value) => _updateTheme((theme) => theme.copyWith(fioBottom: value)),
           onSubmitted: (value) => _applyColor(isFio: true, rawValue: value),
           onPresetSelected: (color) => _updateTheme((theme) => theme.copyWith(fioColor: color)),
         );
         final cityEditor = _EditorSection(
           title: AppLocalizations.tr(lang, 'gifTitleCitySection'),
           fontScale: currentTheme.cityFontScale,
+          horizontalPosition: currentTheme.cityLeft,
+          verticalPosition: currentTheme.cityBottom,
           min: 0.06,
           max: 0.18,
           divisions: 12,
           sizeLabel: AppLocalizations.tr(lang, 'gifTitleTextSize'),
           colorLabel: AppLocalizations.tr(lang, 'gifTitleTextColor'),
+          horizontalLabel: AppLocalizations.tr(lang, 'gifTitleHorizontalPosition'),
+          verticalLabel: AppLocalizations.tr(lang, 'gifTitleVerticalPosition'),
           controller: _cityColorController,
           selectedColor: currentTheme.cityColor,
           presetColors: _presetColors,
           onScaleChanged: (value) => _updateTheme((theme) => theme.copyWith(cityFontScale: value)),
+          onHorizontalChanged: (value) => _updateTheme((theme) => theme.copyWith(cityLeft: value)),
+          onVerticalChanged: (value) => _updateTheme((theme) => theme.copyWith(cityBottom: value)),
           onSubmitted: (value) => _applyColor(isFio: false, rawValue: value),
           onPresetSelected: (color) => _updateTheme((theme) => theme.copyWith(cityColor: color)),
         );
@@ -263,30 +275,42 @@ class _EditorSection extends StatelessWidget {
   const _EditorSection({
     required this.title,
     required this.fontScale,
+    required this.horizontalPosition,
+    required this.verticalPosition,
     required this.min,
     required this.max,
     required this.divisions,
     required this.sizeLabel,
     required this.colorLabel,
+    required this.horizontalLabel,
+    required this.verticalLabel,
     required this.controller,
     required this.selectedColor,
     required this.presetColors,
     required this.onScaleChanged,
+    required this.onHorizontalChanged,
+    required this.onVerticalChanged,
     required this.onSubmitted,
     required this.onPresetSelected,
   });
 
   final String title;
   final double fontScale;
+  final double horizontalPosition;
+  final double verticalPosition;
   final double min;
   final double max;
   final int divisions;
   final String sizeLabel;
   final String colorLabel;
+  final String horizontalLabel;
+  final String verticalLabel;
   final TextEditingController controller;
   final Color selectedColor;
   final List<Color> presetColors;
   final ValueChanged<double> onScaleChanged;
+  final ValueChanged<double> onHorizontalChanged;
+  final ValueChanged<double> onVerticalChanged;
   final ValueChanged<String> onSubmitted;
   final ValueChanged<Color> onPresetSelected;
 
@@ -310,7 +334,19 @@ class _EditorSection extends StatelessWidget {
               onChanged: onScaleChanged,
             ),
             Text('$sizeLabel: ${fontScale.toStringAsFixed(2)}'),
+            const SizedBox(height: 12),
+            _PositionSlider(
+              label: horizontalLabel,
+              value: horizontalPosition,
+              onChanged: onHorizontalChanged,
+            ),
             const SizedBox(height: 8),
+            _PositionSlider(
+              label: verticalLabel,
+              value: verticalPosition,
+              onChanged: onVerticalChanged,
+            ),
+            const SizedBox(height: 12),
             _ColorEditor(
               label: colorLabel,
               controller: controller,
@@ -322,6 +358,36 @@ class _EditorSection extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _PositionSlider extends StatelessWidget {
+  const _PositionSlider({
+    required this.label,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final String label;
+  final double value;
+  final ValueChanged<double> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Slider(
+          value: value,
+          min: 0,
+          max: 1,
+          divisions: 100,
+          label: value.toStringAsFixed(2),
+          onChanged: onChanged,
+        ),
+        Text('$label: ${value.toStringAsFixed(2)}'),
+      ],
     );
   }
 }
