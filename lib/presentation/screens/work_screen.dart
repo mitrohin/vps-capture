@@ -1024,6 +1024,12 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
                                   nextThreadTitle: AppLocalizations.tr(lang, 'nextThread'),
                                   postponedTitle: AppLocalizations.tr(lang, 'postponedParticipants'),
                                   nextThreadEmptyLabel: nextThread == null ? AppLocalizations.tr(lang, 'endThread') : null,
+                                  postponedBottomWidget: _buildLivePreviewPanel(
+                                    lang: lang,
+                                    framePath: state.livePreviewFramePath,
+                                    frameVersion: state.livePreviewFrameVersion,
+                                    isCaptureInitialized: state.isCaptureInitialized,
+                                  ),
                                   middleControls: SizedBox(
                                     width: 160,
                                     child: Column(
@@ -1075,5 +1081,76 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
             ),
           ),
         );
+  }
+
+  Widget _buildLivePreviewPanel({
+    required String lang,
+    required String? framePath,
+    required int frameVersion,
+    required bool isCaptureInitialized,
+  }) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: const Color(0xFF1C1C1E),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFF2A2A2D)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(10, 8, 10, 6),
+            child: Text(
+              AppLocalizations.tr(lang, 'startPreview'),
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          Expanded(
+            child: ClipRRect(
+              borderRadius: const BorderRadius.only(
+                bottomLeft: Radius.circular(8),
+                bottomRight: Radius.circular(8),
+              ),
+              child: _buildPreviewBody(framePath, frameVersion, isCaptureInitialized),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPreviewBody(String? framePath, int frameVersion, bool isCaptureInitialized) {
+    if (!isCaptureInitialized) {
+      return const Center(
+        child: Text(
+          'Поток не инициализирован',
+          style: TextStyle(color: Colors.white70),
+        ),
+      );
+    }
+
+    if (framePath == null || framePath.isEmpty) {
+      return const Center(
+        child: CircularProgressIndicator(),
+      );
+    }
+
+    final previewFile = File(framePath);
+    if (!previewFile.existsSync()) {
+      return const Center(
+        child: CircularProgressIndicator(),
+      );
+    }
+
+    return Image.file(
+      previewFile,
+      key: ValueKey('preview-$frameVersion'),
+      fit: BoxFit.cover,
+      gaplessPlayback: true,
+    );
   }
 }

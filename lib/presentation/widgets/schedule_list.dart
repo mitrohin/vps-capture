@@ -29,6 +29,7 @@ class ScheduleList extends StatefulWidget {
     this.nextThreadEmptyLabel,
     required this.isRecordingMarked,
     this.middleControls,
+    this.postponedBottomWidget,
   });
 
   final List<ScheduleListEntry> currentThreadItems;
@@ -44,6 +45,7 @@ class ScheduleList extends StatefulWidget {
   final String? nextThreadEmptyLabel;
   final bool isRecordingMarked;
   final Widget? middleControls;
+  final Widget? postponedBottomWidget;
 
   @override
   State<ScheduleList> createState() => _ScheduleListState();
@@ -147,11 +149,26 @@ class _ScheduleListState extends State<ScheduleList> {
         ],
         const SizedBox(width: 10),
         Expanded(
-          child: _buildThreadColumn(
-            title: widget.postponedTitle,
-            entries: widget.postponedItems,
-            showThreadBadge: true,
-            scrollController: _postponedScrollController,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                flex: widget.postponedBottomWidget == null ? 1 : 2,
+                child: _buildThreadColumn(
+                  title: widget.postponedTitle,
+                  entries: widget.postponedItems,
+                  showThreadBadge: true,
+                  scrollController: _postponedScrollController,
+                ),
+              ),
+              if (widget.postponedBottomWidget != null) ...[
+                const SizedBox(height: 10),
+                Expanded(
+                  flex: 2,
+                  child: widget.postponedBottomWidget!,
+                ),
+              ],
+            ],
           ),
         ),
       ],
