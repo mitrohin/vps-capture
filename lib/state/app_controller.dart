@@ -55,7 +55,7 @@ final appControllerProvider = StateNotifierProvider<AppController, AppState>((re
 });
 
 class AppController extends StateNotifier<AppState> {
-  static const String currentAppVersion = '2.2.5';
+  static const String currentAppVersion = '2.2.7';
 
   AppController(
     this._locator,
@@ -734,8 +734,11 @@ class AppController extends StateNotifier<AppState> {
     for (var i = 0; i < updated.length; i++) {
       if (updated[i].isPinnedToPostponed) {
         postponedIndexes.add(i);
+        final restoredStatus = updated[i].status == ScheduleItemStatus.postponed
+            ? ScheduleItemStatus.pending
+            : updated[i].status;
         updated[i] = updated[i].copyWith(
-          status: ScheduleItemStatus.pending,
+          status: restoredStatus,
           isPinnedToPostponed: false,
           clearStartedAt: true,
         );
@@ -768,9 +771,12 @@ class AppController extends StateNotifier<AppState> {
     final item = state.schedule[index];
     if (item.status != ScheduleItemStatus.done && !item.isPinnedToPostponed) return;
 
+    final restoredStatus = item.isPinnedToPostponed && item.status != ScheduleItemStatus.postponed
+        ? item.status
+        : ScheduleItemStatus.pending;
     final updated = [...state.schedule];
     updated[index] = item.copyWith(
-      status: ScheduleItemStatus.pending,
+      status: restoredStatus,
       isPinnedToPostponed: false,
       clearStartedAt: true,
     );
