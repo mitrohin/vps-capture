@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -83,6 +84,7 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
   final FocusNode _listFocusNode = FocusNode(debugLabel: 'participants_list_focus');
   bool _ctrlAltPostponeTriggered = false;
   bool _isFfmpegDialogVisible = false;
+  Uint8List? _lastPreviewFrameBytes;
 
   void _updateSelectedIndexAfterFilterChange() {
     final state = ref.read(appControllerProvider);
@@ -1027,7 +1029,6 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
                                   postponedBottomWidget: _buildLivePreviewPanel(
                                     lang: lang,
                                     framePath: state.livePreviewFramePath,
-                                    frameVersion: state.livePreviewFrameVersion,
                                     isCaptureInitialized: state.isCaptureInitialized,
                                   ),
                                   middleControls: SizedBox(
@@ -1086,7 +1087,6 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
   Widget _buildLivePreviewPanel({
     required String lang,
     required String? framePath,
-    required int frameVersion,
     required bool isCaptureInitialized,
   }) {
     return DecoratedBox(
@@ -1115,7 +1115,7 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
                 bottomLeft: Radius.circular(8),
                 bottomRight: Radius.circular(8),
               ),
-              child: _buildPreviewBody(framePath, frameVersion, isCaptureInitialized),
+              child: _buildPreviewBody(framePath, isCaptureInitialized),
             ),
           ),
         ],
@@ -1123,7 +1123,7 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
     );
   }
 
-  Widget _buildPreviewBody(String? framePath, int frameVersion, bool isCaptureInitialized) {
+  Widget _buildPreviewBody(String? framePath, bool isCaptureInitialized) {
     if (!isCaptureInitialized) {
       return const Center(
         child: Text(
@@ -1134,23 +1134,43 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
     }
 
     if (framePath == null || framePath.isEmpty) {
-      return const Center(
-        child: CircularProgressIndicator(),
-      );
+      return _buildPreviewPlaceholder();
     }
 
     final previewFile = File(framePath);
-    if (!previewFile.existsSync()) {
-      return const Center(
-        child: CircularProgressIndicator(),
+    Uint8List? frameBytes;
+
+    if (previewFile.existsSync()) {
+      try {
+        frameBytes = previewFile.readAsBytesSync();
+      } on FileSystemException {
+        frameBytes = null;
+      }
+    }
+
+    if (frameBytes != null && frameBytes.isNotEmpty) {
+      _lastPreviewFrameBytes = frameBytes;
+      return Image.memory(
+        frameBytes,
+        fit: BoxFit.cover,
+        gaplessPlayback: true,
       );
     }
 
-    return Image.memory(
-      previewFile.readAsBytesSync(),
-      key: ValueKey('preview-$frameVersion'),
-      fit: BoxFit.cover,
-      gaplessPlayback: false,
+    return _buildPreviewPlaceholder();
+  }
+
+  Widget _buildPreviewPlaceholder() {
+    if (_lastPreviewFrameBytes != null) {
+      return Image.memory(
+        _lastPreviewFrameBytes!,
+        fit: BoxFit.cover,
+        gaplessPlayback: true,
+      );
+    }
+
+    return const Center(
+      child: CircularProgressIndicator(),
     );
   }
 }

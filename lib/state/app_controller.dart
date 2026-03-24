@@ -56,6 +56,7 @@ final appControllerProvider = StateNotifierProvider<AppController, AppState>((re
 
 class AppController extends StateNotifier<AppState> {
   static const String currentAppVersion = '3.0.1';
+  static const Duration _livePreviewRefreshInterval = Duration(seconds: 3);
 
   AppController(
     this._locator,
@@ -1000,7 +1001,7 @@ class AppController extends StateNotifier<AppState> {
 
   void _startLivePreviewUpdates() {
     _livePreviewTimer?.cancel();
-    _livePreviewTimer = Timer.periodic(const Duration(milliseconds: 900), (_) {
+    _livePreviewTimer = Timer.periodic(_livePreviewRefreshInterval, (_) {
       unawaited(_refreshLivePreviewFrame());
     });
     unawaited(_refreshLivePreviewFrame());
