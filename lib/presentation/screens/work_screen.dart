@@ -1101,7 +1101,7 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
           Padding(
             padding: const EdgeInsets.fromLTRB(10, 8, 10, 6),
             child: Text(
-              AppLocalizations.tr(lang, 'startPreview'),
+              AppLocalizations.tr(lang, 'previewTitle'),
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 20,
@@ -1146,11 +1146,11 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
       );
     }
 
-    return Image.file(
-      previewFile,
+    return Image.memory(
+      previewFile.readAsBytesSync(),
       key: ValueKey('preview-$frameVersion'),
       fit: BoxFit.cover,
-      gaplessPlayback: true,
+      gaplessPlayback: false,
     );
   }
 }
