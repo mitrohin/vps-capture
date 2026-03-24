@@ -19,11 +19,10 @@ class AppConfig {
     this.segmentSeconds = 1,
     this.bufferMinutes = 8,
     this.preRollSeconds = 2,
-    this.recordingStartTrimMillis = 500,
     this.languageCode = 'en',
     this.selectedGif,
     this.gifTitleThemes,
-    this.version = '2.2.6',
+    this.version = '2.2.5',
     this.webServerPort = 38117,
   });
 
@@ -42,7 +41,6 @@ class AppConfig {
   final int segmentSeconds;
   final int bufferMinutes;
   final int preRollSeconds;
-  final int recordingStartTrimMillis;
   final String languageCode;
   final String? selectedGif;
   final Map<String, GifTitleTheme>? gifTitleThemes;
@@ -75,7 +73,6 @@ class AppConfig {
     int? segmentSeconds,
     int? bufferMinutes,
     int? preRollSeconds,
-    int? recordingStartTrimMillis,
     String? languageCode,
     bool clearVideoDevice = false,
     bool clearAudioDevice = false,
@@ -100,7 +97,6 @@ class AppConfig {
       segmentSeconds: segmentSeconds ?? this.segmentSeconds,
       bufferMinutes: bufferMinutes ?? this.bufferMinutes,
       preRollSeconds: preRollSeconds ?? this.preRollSeconds,
-      recordingStartTrimMillis: recordingStartTrimMillis ?? this.recordingStartTrimMillis,
       languageCode: languageCode ?? this.languageCode,
       selectedGif: selectedGif ?? this.selectedGif,
       gifTitleThemes: gifTitleThemes ?? this.gifTitleThemes,
