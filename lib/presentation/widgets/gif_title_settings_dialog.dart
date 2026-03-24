@@ -115,7 +115,10 @@ class _GifTitleSettingsDialogState extends ConsumerState<GifTitleSettingsDialog>
       alignment: const Alignment(0, -0.92),
       insetPadding: const EdgeInsets.fromLTRB(24, 20, 24, 120),
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 980),
+        constraints: BoxConstraints(
+          maxWidth: 980,
+          maxHeight: MediaQuery.sizeOf(context).height - 40,
+        ),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(24, 20, 24, 16),
           child: SingleChildScrollView(
@@ -335,16 +338,47 @@ class _EditorSection extends StatelessWidget {
             ),
             Text('$sizeLabel: ${fontScale.toStringAsFixed(2)}'),
             const SizedBox(height: 12),
-            _PositionSlider(
-              label: horizontalLabel,
-              value: horizontalPosition,
-              onChanged: onHorizontalChanged,
-            ),
-            const SizedBox(height: 8),
-            _PositionSlider(
-              label: verticalLabel,
-              value: verticalPosition,
-              onChanged: onVerticalChanged,
+            LayoutBuilder(
+              builder: (context, constraints) {
+                if (constraints.maxWidth < 420) {
+                  return Column(
+                    children: [
+                      _PositionSlider(
+                        label: horizontalLabel,
+                        value: horizontalPosition,
+                        onChanged: onHorizontalChanged,
+                      ),
+                      const SizedBox(height: 8),
+                      _PositionSlider(
+                        label: verticalLabel,
+                        value: verticalPosition,
+                        onChanged: onVerticalChanged,
+                      ),
+                    ],
+                  );
+                }
+
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: _PositionSlider(
+                        label: horizontalLabel,
+                        value: horizontalPosition,
+                        onChanged: onHorizontalChanged,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _PositionSlider(
+                        label: verticalLabel,
+                        value: verticalPosition,
+                        onChanged: onVerticalChanged,
+                      ),
+                    ),
+                  ],
+                );
+              },
             ),
             const SizedBox(height: 12),
             _ColorEditor(
@@ -378,6 +412,7 @@ class _PositionSlider extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        Text('$label: ${value.toStringAsFixed(2)}'),
         Slider(
           value: value,
           min: 0,
@@ -386,7 +421,6 @@ class _PositionSlider extends StatelessWidget {
           label: value.toStringAsFixed(2),
           onChanged: onChanged,
         ),
-        Text('$label: ${value.toStringAsFixed(2)}'),
       ],
     );
   }
