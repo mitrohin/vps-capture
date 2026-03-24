@@ -7,7 +7,6 @@ import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../localization/app_localizations.dart';
 
@@ -25,6 +24,7 @@ import '../data/schedule/schedule_parser.dart';
 import '../data/services/config_services.dart';
 import '../data/storage/app_paths.dart';
 import '../data/storage/file_namer.dart';
+import '../data/storage/local_preferences.dart';
 import '../data/web/judge_web_server.dart';
 import '../data/web/recorded_clip_index.dart';
 import '../domain/models/app_config.dart';
@@ -82,10 +82,10 @@ class AppController extends StateNotifier<AppState> {
   Timer? _configWriteDebounceTimer;
   Future<void>? _shutdownFuture;
 
-  SharedPreferences? _prefs;
+  LocalPreferences? _prefs;
 
   Future<void> initialize() async {
-    _prefs = await SharedPreferences.getInstance();
+    _prefs = await LocalPreferences.load();
     final hasCompletedFirstLaunch = _prefs!.getBool('hasCompletedFirstLaunch') ?? false;
 
     if (!hasCompletedFirstLaunch) {
