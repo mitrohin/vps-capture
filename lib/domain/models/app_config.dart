@@ -22,7 +22,7 @@ class AppConfig {
     this.languageCode = 'en',
     this.selectedGif,
     this.gifTitleThemes,
-    this.version = '2.2.7',
+    this.version = '3.0.1',
     this.webServerPort = 38117,
   });
 

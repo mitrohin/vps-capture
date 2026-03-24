@@ -22,6 +22,9 @@ class AppState {
     this.isScheduleInputVisible = true,
     this.ffmpegIssue,
     this.judgeWebServerStatus = const JudgeWebServerStatus(),
+    this.isCaptureInitialized = false,
+    this.livePreviewFramePath,
+    this.livePreviewFrameVersion = 0,
   });
 
   final AppMode mode;
@@ -38,6 +41,9 @@ class AppState {
   final bool isScheduleInputVisible;
   final FfmpegIssue? ffmpegIssue;
   final JudgeWebServerStatus judgeWebServerStatus;
+  final bool isCaptureInitialized;
+  final String? livePreviewFramePath;
+  final int livePreviewFrameVersion;
 
   ScheduleItem? get selectedItem {
     final index = selectedIndex;
@@ -63,6 +69,10 @@ class AppState {
     FfmpegIssue? ffmpegIssue,
     bool clearFfmpegIssue = false,
     JudgeWebServerStatus? judgeWebServerStatus,
+    bool? isCaptureInitialized,
+    String? livePreviewFramePath,
+    bool clearLivePreviewFramePath = false,
+    int? livePreviewFrameVersion,
   }) {
     return AppState(
       mode: mode ?? this.mode,
@@ -79,6 +89,9 @@ class AppState {
       isScheduleInputVisible: isScheduleInputVisible ?? this.isScheduleInputVisible,
       ffmpegIssue: clearFfmpegIssue ? null : (ffmpegIssue ?? this.ffmpegIssue),
       judgeWebServerStatus: judgeWebServerStatus ?? this.judgeWebServerStatus,
+      isCaptureInitialized: isCaptureInitialized ?? this.isCaptureInitialized,
+      livePreviewFramePath: clearLivePreviewFramePath ? null : (livePreviewFramePath ?? this.livePreviewFramePath),
+      livePreviewFrameVersion: livePreviewFrameVersion ?? this.livePreviewFrameVersion,
     );
   }
 }

@@ -55,7 +55,7 @@ final appControllerProvider = StateNotifierProvider<AppController, AppState>((re
 });
 
 class AppController extends StateNotifier<AppState> {
-  static const String currentAppVersion = '2.2.7';
+  static const String currentAppVersion = '3.0.1';
 
   AppController(
     this._locator,
@@ -80,7 +80,9 @@ class AppController extends StateNotifier<AppState> {
   final RecordedClipIndex _clipIndex;
   final JudgeWebServer _judgeWebServer;
   Timer? _configWriteDebounceTimer;
+  Timer? _livePreviewTimer;
   Future<void>? _shutdownFuture;
+  bool _livePreviewFrameUpdateInFlight = false;
 
   LocalPreferences? _prefs;
 
@@ -96,6 +98,7 @@ class AppController extends StateNotifier<AppState> {
     final cfg = _buildConfigFromPrefs(located);
     await _clipIndex.load();
     state = state.copyWith(config: cfg);
+    await _syncCaptureInitialization(forceRestart: false);
     await loadScheduleFromFile();
     await _syncJudgeWebServer(forceRestart: false);
     if (hasCompletedFirstLaunch && cfg.isComplete) {
@@ -152,9 +155,13 @@ class AppController extends StateNotifier<AppState> {
   }
 
   Future<void> updateConfig(AppConfig config) async {
+    final previousConfig = state.config;
     state = state.copyWith(config: config);
     _configWriteDebounceTimer?.cancel();
     await _persistConfig(config);
+    await _syncCaptureInitialization(
+      forceRestart: _requiresCaptureRestart(previousConfig, config),
+    );
     await _syncJudgeWebServer(forceRestart: state.mode == AppMode.work);
   }
 
@@ -195,6 +202,7 @@ class AppController extends StateNotifier<AppState> {
   Future<void> resetAllSettings() async {
     await _guard(() async {
       await _capture.stopBuffer();
+      _stopLivePreviewUpdates();
       await _preview.stop();
       await _testRecorder.stop(state.config, _appendLog);
       _configWriteDebounceTimer?.cancel();
@@ -244,6 +252,7 @@ class AppController extends StateNotifier<AppState> {
     _configWriteDebounceTimer = null;
 
     await _finalizeActiveRecordingOnShutdown();
+    _stopLivePreviewUpdates();
     await _preview.stop();
     await _testRecorder.stop(state.config, _appendLog);
     await _judgeWebServer.stop();
@@ -568,7 +577,6 @@ class AppController extends StateNotifier<AppState> {
   }
 
   Future<void> backToSetup() async {
-    await _capture.stopBuffer();
     await _preview.stop();
     await _testRecorder.stop(state.config, _appendLog);
     await _judgeWebServer.stop();
@@ -579,6 +587,7 @@ class AppController extends StateNotifier<AppState> {
       clearMarkStart: true,
       judgeWebServerStatus: const JudgeWebServerStatus(),
     );
+    await _syncCaptureInitialization(forceRestart: false);
     await prepareSetupScreen();
   }
 
@@ -592,25 +601,10 @@ class AppController extends StateNotifier<AppState> {
     }
 
     await _guard(() async {
-      await _capture.startBuffer(state.config, _appendLog, () {
-        _appendLog('Buffer process exited unexpectedly. Recording mark cancelled.');
-        final activeIndex = state.schedule.indexWhere((entry) => entry.status == ScheduleItemStatus.active);
-        if (activeIndex == -1) return;
-        final currentItem = state.schedule[activeIndex];
-        final reset = [...state.schedule];
-        reset[activeIndex] = currentItem.copyWith(
-          status: currentItem.isPinnedToPostponed
-              ? ScheduleItemStatus.postponed
-              : ScheduleItemStatus.pending,
-          clearStartedAt: true,
-        );
-        state = state.copyWith(
-          schedule: reset,
-          isRecordingMarked: false,
-          clearMarkStart: true,
-        );
-        _updateScheduleItemInFile(reset[activeIndex]);
-      });
+      await _syncCaptureInitialization(forceRestart: false);
+      if (!_capture.isBufferRunning) {
+        throw Exception('Capture stream is not initialized. Check selected devices and ffmpeg settings.');
+      }
 
       final start = DateTime.now();
       final updated = [...state.schedule];
@@ -642,7 +636,6 @@ class AppController extends StateNotifier<AppState> {
 
     await _guard(() async {
       final stop = DateTime.now();
-      await _capture.stopBuffer();
 
       try {
         final out = await _capture.exportClip(
@@ -710,7 +703,6 @@ class AppController extends StateNotifier<AppState> {
 
     await _guard(() async {
       if (state.isRecordingMarked && targetItem.status == ScheduleItemStatus.active) {
-        await _capture.stopBuffer();
         state = state.copyWith(isRecordingMarked: false, clearMarkStart: true);
       }
 
@@ -925,6 +917,153 @@ class AppController extends StateNotifier<AppState> {
 
   void dismissFfmpegIssue() {
     state = state.copyWith(clearFfmpegIssue: true);
+  }
+
+  bool _requiresCaptureRestart(AppConfig previous, AppConfig next) {
+    return previous.ffmpegPath != next.ffmpegPath ||
+        previous.outputDir != next.outputDir ||
+        previous.sourceKind != next.sourceKind ||
+        previous.selectedVideoDevice?.id != next.selectedVideoDevice?.id ||
+        previous.selectedVideoDevice?.audioId != next.selectedVideoDevice?.audioId ||
+        previous.selectedAudioDevice?.id != next.selectedAudioDevice?.id ||
+        previous.selectedAudioDevice?.audioId != next.selectedAudioDevice?.audioId ||
+        previous.fps != next.fps ||
+        previous.segmentSeconds != next.segmentSeconds ||
+        previous.bufferMinutes != next.bufferMinutes ||
+        previous.codec != next.codec ||
+        previous.videoBitrate != next.videoBitrate ||
+        previous.audioBitrate != next.audioBitrate ||
+        previous.ffmpegPreset != next.ffmpegPreset;
+  }
+
+  Future<void> _syncCaptureInitialization({required bool forceRestart}) async {
+    final config = state.config;
+    if (!config.isComplete) {
+      if (_capture.isBufferRunning) {
+        await _capture.stopBuffer();
+      }
+      _stopLivePreviewUpdates();
+      state = state.copyWith(
+        isCaptureInitialized: false,
+        clearLivePreviewFramePath: true,
+      );
+      return;
+    }
+
+    if (_capture.isBufferRunning && !forceRestart) {
+      state = state.copyWith(isCaptureInitialized: true);
+      _startLivePreviewUpdates();
+      return;
+    }
+
+    if (_capture.isBufferRunning) {
+      await _capture.stopBuffer();
+    }
+
+    try {
+      await _capture.startBuffer(config, _appendLog, _onBufferUnexpectedExit);
+      state = state.copyWith(isCaptureInitialized: true);
+      _appendLog('Capture stream initialized for ${config.selectedVideoDevice?.displayLabel ?? 'unknown device'}.');
+      _startLivePreviewUpdates();
+    } catch (error) {
+      state = state.copyWith(
+        isCaptureInitialized: false,
+        clearLivePreviewFramePath: true,
+      );
+      _appendLog('Failed to initialize capture stream: $error');
+    }
+  }
+
+  void _onBufferUnexpectedExit() {
+    _appendLog('Capture stream exited unexpectedly.');
+    _stopLivePreviewUpdates();
+    state = state.copyWith(
+      isCaptureInitialized: false,
+      clearLivePreviewFramePath: true,
+    );
+
+    final activeIndex = state.schedule.indexWhere((entry) => entry.status == ScheduleItemStatus.active);
+    if (activeIndex == -1) return;
+    final currentItem = state.schedule[activeIndex];
+    final reset = [...state.schedule];
+    reset[activeIndex] = currentItem.copyWith(
+      status: currentItem.isPinnedToPostponed ? ScheduleItemStatus.postponed : ScheduleItemStatus.pending,
+      clearStartedAt: true,
+    );
+    state = state.copyWith(
+      schedule: reset,
+      isRecordingMarked: false,
+      clearMarkStart: true,
+    );
+    unawaited(_updateScheduleItemInFile(reset[activeIndex]));
+  }
+
+  void _startLivePreviewUpdates() {
+    _livePreviewTimer?.cancel();
+    _livePreviewTimer = Timer.periodic(const Duration(milliseconds: 900), (_) {
+      unawaited(_refreshLivePreviewFrame());
+    });
+    unawaited(_refreshLivePreviewFrame());
+  }
+
+  void _stopLivePreviewUpdates() {
+    _livePreviewTimer?.cancel();
+    _livePreviewTimer = null;
+  }
+
+  Future<void> _refreshLivePreviewFrame() async {
+    if (_livePreviewFrameUpdateInFlight) return;
+    final config = state.config;
+    final ffmpegPath = config.ffmpegPath;
+    if (ffmpegPath == null || ffmpegPath.isEmpty || !_capture.isBufferRunning) {
+      return;
+    }
+
+    _livePreviewFrameUpdateInFlight = true;
+    try {
+      final segmentsDir = await AppPaths().segmentsDir();
+      if (!await segmentsDir.exists()) return;
+
+      File? latestSegment;
+      DateTime? latestModifiedAt;
+      await for (final entity in segmentsDir.list()) {
+        if (entity is! File || !entity.path.endsWith('.ts')) continue;
+        final stat = await entity.stat();
+        if (latestModifiedAt == null || stat.modified.isAfter(latestModifiedAt)) {
+          latestModifiedAt = stat.modified;
+          latestSegment = entity;
+        }
+      }
+
+      final segment = latestSegment;
+      if (segment == null) return;
+
+      final previewFrameFile = File(p.join(segmentsDir.path, 'live_preview.jpg'));
+      final result = await Process.run(ffmpegPath, [
+        '-hide_banner',
+        '-loglevel',
+        'error',
+        '-y',
+        '-i',
+        segment.path,
+        '-frames:v',
+        '1',
+        '-q:v',
+        '4',
+        previewFrameFile.path,
+      ]);
+
+      if (result.exitCode == 0 && await previewFrameFile.exists()) {
+        state = state.copyWith(
+          livePreviewFramePath: previewFrameFile.path,
+          livePreviewFrameVersion: state.livePreviewFrameVersion + 1,
+        );
+      }
+    } catch (_) {
+      // Best-effort only.
+    } finally {
+      _livePreviewFrameUpdateInFlight = false;
+    }
   }
 
   Future<String?> saveFfmpegIssueReport() async {
