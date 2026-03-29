@@ -18,6 +18,7 @@ class ClipExporter {
     required String id,
     required String fio,
     required String city,
+    String? overwriteOutputPath,
     required void Function(String line) onLog,
   }) async {
     final segmentsDir = await _paths.segmentsDir();
@@ -29,13 +30,21 @@ class ClipExporter {
     );
     if (files.isEmpty) throw Exception('No segments found for selected time range.');
 
-    final listFile = await _paths.concatListFile();
+    final appSupportDir = await _paths.appSupportDir();
+    final listFile = File(
+      p.join(
+        appSupportDir.path,
+        'concat_list_${DateTime.now().microsecondsSinceEpoch}_${id.replaceAll(RegExp(r'[^\w\-]'), "_")}.txt',
+      ),
+    );
     final content = files.map((f) => "file '${f.path.replaceAll("'", "''")}'").join('\n');
     await listFile.writeAsString(content);
 
-    final outputName = FileNamer.outputClipName(id:id ,fio: fio, city: city);
-    final outputFolder = getOutputDir(config.outputDir!, id);
-    final outputPath = p.join(outputFolder!, outputName);
+    final outputPath = overwriteOutputPath ?? (() {
+      final outputName = FileNamer.outputClipName(id:id ,fio: fio, city: city);
+      final outputFolder = getOutputDir(config.outputDir!, id);
+      return p.join(outputFolder!, outputName);
+    })();
 
     final copyArgs = [
       '-f',
@@ -52,36 +61,42 @@ class ClipExporter {
       '-y',
     ];
 
-    final copyCode = await _run(config.ffmpegPath!, copyArgs, onLog);
-    if (copyCode == 0) return outputPath;
+    try {
+      final copyCode = await _run(config.ffmpegPath!, copyArgs, onLog);
+      if (copyCode == 0) return outputPath;
 
-    final codec = config.codec ?? _defaultCodec();
-    final encodeArgs = [
-      '-f',
-      'concat',
-      '-safe',
-      '0',
-      '-i',
-      listFile.path,
-      '-c:v',
-      codec,
-      if (codec == 'libx264') ...['-preset', config.ffmpegPreset],
-      '-b:v',
-      config.videoBitrate,
-      '-c:a',
-      'aac',
-      '-b:a',
-      config.audioBitrate,
-      '-movflags',
-      config.movFlags,
-      outputPath,
-      '-y',
-    ];
+      final codec = config.codec ?? _defaultCodec();
+      final encodeArgs = [
+        '-f',
+        'concat',
+        '-safe',
+        '0',
+        '-i',
+        listFile.path,
+        '-c:v',
+        codec,
+        if (codec == 'libx264') ...['-preset', config.ffmpegPreset],
+        '-b:v',
+        config.videoBitrate,
+        '-c:a',
+        'aac',
+        '-b:a',
+        config.audioBitrate,
+        '-movflags',
+        config.movFlags,
+        outputPath,
+        '-y',
+      ];
 
-    final reencodeCode = await _run(config.ffmpegPath!, encodeArgs, onLog);
-    if (reencodeCode != 0) throw Exception('Export failed in both copy and re-encode modes.');
+      final reencodeCode = await _run(config.ffmpegPath!, encodeArgs, onLog);
+      if (reencodeCode != 0) throw Exception('Export failed in both copy and re-encode modes.');
 
-    return outputPath;
+      return outputPath;
+    } finally {
+      if (await listFile.exists()) {
+        await listFile.delete();
+      }
+    }
   }
 
   Future<int> _run(String cmd, List<String> args, void Function(String line) onLog) async {

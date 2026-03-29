@@ -31,6 +31,7 @@ class CaptureService {
     required String id,
     required String fio,
     required String city,
+    String? overwriteOutputPath,
     required void Function(String line) onLog,
   }) {
     return _clipExporter.exportClip(
@@ -40,6 +41,7 @@ class CaptureService {
       id: id,
       fio: fio,
       city: city,
+      overwriteOutputPath: overwriteOutputPath,
       onLog: onLog,
     );
   }

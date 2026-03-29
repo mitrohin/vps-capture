@@ -242,7 +242,8 @@ class _ScheduleListState extends State<ScheduleList> {
   }) {
     final isSelected = widget.selectedIndex == entry.globalIndex;
     final isHovered = _hoveredIndex == entry.globalIndex;
-    final canDelete = !(widget.isRecordingMarked && entry.item.status == ScheduleItemStatus.active);
+    final canDelete = !(widget.isRecordingMarked && entry.item.status == ScheduleItemStatus.active) &&
+        entry.item.status != ScheduleItemStatus.saving;
     
     return MouseRegion(
       onEnter: (_) => setState(() => _hoveredIndex = entry.globalIndex),
@@ -395,6 +396,8 @@ class _ScheduleListState extends State<ScheduleList> {
         return AppLocalizations.tr(widget.languageCode, 'pending');
       case ScheduleItemStatus.active:
         return AppLocalizations.tr(widget.languageCode, 'active');
+      case ScheduleItemStatus.saving:
+        return AppLocalizations.tr(widget.languageCode, 'saving');
       case ScheduleItemStatus.done:
         return AppLocalizations.tr(widget.languageCode, 'done');
       case ScheduleItemStatus.postponed:

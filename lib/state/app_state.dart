@@ -16,6 +16,7 @@ class AppState {
     this.isLoading = false,
     this.isRecordingMarked = false,
     this.currentMarkStartedAt,
+    this.currentOverwriteClipPath,
     this.logs = const [],
     this.isPreviewRunning = false,
     this.isTestRecording = false,
@@ -35,6 +36,7 @@ class AppState {
   final bool isLoading;
   final bool isRecordingMarked;
   final DateTime? currentMarkStartedAt;
+  final String? currentOverwriteClipPath;
   final List<String> logs;
   final bool isPreviewRunning;
   final bool isTestRecording;
@@ -62,6 +64,7 @@ class AppState {
     bool? isRecordingMarked,
     DateTime? currentMarkStartedAt,
     bool clearMarkStart = false,
+    String? currentOverwriteClipPath,
     List<String>? logs,
     bool? isPreviewRunning,
     bool? isTestRecording,
@@ -83,6 +86,7 @@ class AppState {
       isLoading: isLoading ?? this.isLoading,
       isRecordingMarked: isRecordingMarked ?? this.isRecordingMarked,
       currentMarkStartedAt: clearMarkStart ? null : (currentMarkStartedAt ?? this.currentMarkStartedAt),
+      currentOverwriteClipPath: clearMarkStart ? null : (currentOverwriteClipPath ?? this.currentOverwriteClipPath),
       logs: logs ?? this.logs,
       isPreviewRunning: isPreviewRunning ?? this.isPreviewRunning,
       isTestRecording: isTestRecording ?? this.isTestRecording,
