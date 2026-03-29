@@ -44,11 +44,19 @@ class _GymCaptureAppState extends ConsumerState<GymCaptureApp> with WindowListen
 
     _isClosing = true;
     try {
-      await ref.read(appControllerProvider.notifier).shutdown();
+      await ref.read(appControllerProvider.notifier).shutdown().timeout(
+        const Duration(seconds: 5),
+        onTimeout: () {
+          debugPrint('Shutdown timed out. Forcing window close.');
+        },
+      );
+    } catch (error, stackTrace) {
+      debugPrint('Shutdown failed during window close: $error');
+      debugPrint('$stackTrace');
+    } finally {
       _allowWindowClose = true;
       await windowManager.setPreventClose(false);
       await windowManager.close();
-    } finally {
       _isClosing = false;
     }
   }
