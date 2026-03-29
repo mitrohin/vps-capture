@@ -225,24 +225,30 @@ class JudgeWebServer {
     .summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-top: 20px; }
     .stat { background: #171c24; border: 1px solid #2a3442; border-radius: 18px; padding: 16px; }
     .stat strong { display: block; font-size: 28px; margin-top: 8px; }
-    .toolbar { display: flex; flex-wrap: wrap; gap: 12px; margin: 20px 0; }
-    .toolbar input, .toolbar select { background: #171c24; color: #fff; border: 1px solid #334155; border-radius: 12px; padding: 12px 14px; font-size: 16px; }
-    .list { display: grid; gap: 14px; }
-    .card { background: linear-gradient(180deg, #171c24, #121720); border: 1px solid #2d3748; border-radius: 18px; padding: 18px; box-shadow: 0 12px 28px rgba(0, 0, 0, .24); }
-    .card.done { border-color: #1f8f5f; }
-    .card.active { border-color: #f59e0b; }
-    .row { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; align-items: flex-start; }
-    .name { font-size: 28px; font-weight: 700; margin: 0; }
-    .meta { margin-top: 10px; color: #bdd0e5; display: flex; flex-wrap: wrap; gap: 8px; }
-    .chip, .status { display: inline-flex; align-items: center; border-radius: 999px; padding: 6px 12px; font-weight: 700; }
-    .chip { background: #253042; color: #d9e6f5; }
+    .toolbar { display: grid; grid-template-columns: 1fr minmax(170px, 220px) minmax(170px, 220px); gap: 12px; margin: 20px 0; width: 100%; }
+    .toolbar input, .toolbar select { width: 100%; box-sizing: border-box; background: #171c24; color: #fff; border: 1px solid #334155; border-radius: 12px; padding: 12px 14px; font-size: 16px; }
+    .list { display: grid; gap: 18px; }
+    .thread-group h2 { margin: 0 0 10px; font-size: 22px; color: #d8e7f9; }
+    .table { border: 1px solid #2d3748; border-radius: 14px; overflow: hidden; background: #121720; }
+    .table-head, .table-row { display: grid; grid-template-columns: minmax(140px, 1.2fr) minmax(220px, 2fr) minmax(220px, 2fr) minmax(150px, 1fr) minmax(190px, auto); gap: 10px; align-items: center; padding: 10px 12px; }
+    .table-head { background: #1a222d; font-size: 12px; text-transform: uppercase; color: #9fb0c6; font-weight: 700; letter-spacing: .04em; }
+    .table-row { border-top: 1px solid #273142; font-size: 15px; }
+    .table-row.done { background: rgba(15, 110, 72, 0.12); }
+    .table-row.active { background: rgba(245, 158, 11, 0.12); }
+    .table-row.postponed { background: rgba(107, 33, 71, 0.14); }
+    .table-row.pending { background: rgba(51, 65, 85, 0.16); }
+    .type-cell { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+    .type-box { width: 22px; height: 22px; border-radius: 4px; border: 1px solid transparent; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; }
+    .fio { font-weight: 700; }
+    .meta { color: #bdd0e5; min-width: 0; }
+    .status { display: inline-flex; align-items: center; border-radius: 999px; padding: 4px 10px; font-size: 12px; font-weight: 700; width: fit-content; }
     .status.pending { background: #334155; }
     .status.active { background: #8a5a00; }
     .status.done { background: #0f6e48; }
     .status.postponed { background: #6b2147; }
-    .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
     button { cursor: pointer; border: none; border-radius: 12px; padding: 12px 16px; font-size: 16px; font-weight: 700; }
     button.primary { background: #22c55e; color: #04120a; }
+    button.primary .play { margin-right: 8px; }
     button.secondary { background: #334155; color: #fff; }
     button:disabled { opacity: .45; cursor: default; }
     .empty { text-align: center; padding: 56px 20px; background: #171c24; border: 1px dashed #334155; border-radius: 18px; color: #9fb0c6; }
@@ -256,8 +262,16 @@ class JudgeWebServer {
       .shell { padding: 16px; }
       .name { font-size: 22px; }
       .title h1 { font-size: 28px; }
-      .toolbar { flex-direction: column; }
-      .toolbar input, .toolbar select { width: 100%; box-sizing: border-box; }
+      .toolbar { grid-template-columns: 1fr; }
+      .table { border: 0; background: transparent; }
+      .table-head { display: none; }
+      .table-row { display: grid; grid-template-columns: 1fr; gap: 8px; border: 1px solid #2d3748; border-radius: 14px; margin-bottom: 10px; background: #121720; }
+      .table-row > div { display: flex; justify-content: space-between; gap: 10px; }
+      .table-row > div::before { color: #9fb0c6; font-size: 12px; }
+      .table-row > div:nth-child(1)::before { content: 'Вид'; }
+      .table-row > div:nth-child(2)::before { content: 'ФИО'; }
+      .table-row > div:nth-child(3)::before { content: 'Доп. инфо'; }
+      .table-row > div:nth-child(4)::before { content: 'Статус'; }
     }
   </style>
 </head>
@@ -372,16 +386,6 @@ class JudgeWebServer {
       schedulePolling();
     }
 
-    function compareParticipantsByDateDesc(left, right) {
-      const leftTime = left.startedAt ? Date.parse(left.startedAt) : NaN;
-      const rightTime = right.startedAt ? Date.parse(right.startedAt) : NaN;
-      const leftHasTime = Number.isFinite(leftTime);
-      const rightHasTime = Number.isFinite(rightTime);
-      if (leftHasTime && rightHasTime && leftTime !== rightTime) return rightTime - leftTime;
-      if (leftHasTime !== rightHasTime) return leftHasTime ? -1 : 1;
-      return 0;
-    }
-
     function render() {
       const snapshot = state.snapshot;
       if (!snapshot) return;
@@ -422,34 +426,56 @@ class JudgeWebServer {
           if (!state.search) return true;
           const haystack = `${participant.fio} ${participant.city} ${participant.apparatus ?? ''}`.toLowerCase();
           return haystack.includes(state.search);
-        })
-        .slice()
-        .sort(compareParticipantsByDateDesc);
+        });
 
       if (!visible.length) {
         cards.innerHTML = `<div class="empty">${escapeHtml(t.judgeEmpty)}</div>`;
         return;
       }
 
-      cards.innerHTML = visible.map((participant) => `
-        <article class="card ${participant.status}">
-          <div class="row">
-            <div>
-              <h2 class="name">${escapeHtml(participant.fio)}</h2>
-              <div class="meta">
-                <span class="chip">${escapeHtml(participant.city)}</span>
-                ${participant.apparatus ? `<span class="chip">${escapeHtml(participant.apparatus)}</span>` : ''}
-                ${participant.threadLabel ? `<span class="chip">${escapeHtml(participant.threadLabel)}</span>` : ''}
-                ${participant.typeLabel ? `<span class="chip">${escapeHtml(participant.typeLabel)}</span>` : ''}
-                <span class="status ${participant.status}">${escapeHtml(participant.statusLabel)}</span>
-              </div>
+      const groups = [];
+      const groupByThread = new Map();
+      visible.forEach((participant) => {
+        const key = String(participant.threadIndex ?? 'no-thread');
+        if (!groupByThread.has(key)) {
+          groupByThread.set(key, {
+            key,
+            label: participant.threadIndex != null ? `Поток ${participant.threadIndex + 1}` : (participant.threadLabel || 'Поток —'),
+            items: [],
+          });
+          groups.push(groupByThread.get(key));
+        }
+        groupByThread.get(key).items.push(participant);
+      });
+
+      cards.innerHTML = groups.map((group) => `
+        <section class="thread-group">
+          <h2>${escapeHtml(group.label)}</h2>
+          <div class="table">
+            <div class="table-head">
+              <div>Вид</div>
+              <div>ФИО</div>
+              <div>Доп. информация</div>
+              <div>Статус</div>
+              <div></div>
             </div>
-            <div class="hint">${participant.startedAtLabel ? `${escapeHtml(t.judgeStartedAt)}: ${escapeHtml(participant.startedAtLabel)}` : ''}</div>
+            ${group.items.map((participant) => `
+              <div class="table-row ${participant.status}">
+                <div class="type-cell">
+                  ${renderTypeCell(participant)}
+                </div>
+                <div class="fio">${escapeHtml(participant.fio)}</div>
+                <div class="meta">${escapeHtml([participant.city, participant.apparatus, participant.startedAtLabel ? `${t.judgeStartedAt}: ${participant.startedAtLabel}` : null].filter(Boolean).join(' • '))}</div>
+                <div><span class="status ${participant.status}">${escapeHtml(participant.statusLabel)}</span></div>
+                <div>
+                  <button class="primary" ${participant.clipId ? '' : 'disabled'} data-clip-id="${participant.clipId ?? ''}" data-title="${escapeHtmlAttr(participant.fio)}" data-meta="${escapeHtmlAttr([participant.city, participant.apparatus, participant.threadLabel, participant.typeLabel].filter(Boolean).join(' • '))}">
+                    <span class="play">▶</span>${escapeHtml(t.judgeOpenReplay)}
+                  </button>
+                </div>
+              </div>
+            `).join('')}
           </div>
-          <div class="actions">
-            <button class="primary" ${participant.clipId ? '' : 'disabled'} data-clip-id="${participant.clipId ?? ''}" data-title="${escapeHtmlAttr(participant.fio)}" data-meta="${escapeHtmlAttr([participant.city, participant.apparatus, participant.threadLabel, participant.typeLabel].filter(Boolean).join(' • '))}">${escapeHtml(participant.clipId ? t.judgeOpenReplay : t.judgeReplayMissing)}</button>
-          </div>
-        </article>
+        </section>
       `).join('');
 
       cards.querySelectorAll('button[data-clip-id]').forEach((button) => {
@@ -484,6 +510,27 @@ class JudgeWebServer {
 
     function escapeHtmlAttr(value) {
       return escapeHtml(value).replaceAll('`', '&#96;');
+    }
+
+    function getTypeColor(typeIndex) {
+      switch (Number(typeIndex)) {
+        case 1: return '#4CAF50';
+        case 2: return '#2196F3';
+        case 3: return '#FF9800';
+        case 4: return '#E91E63';
+        case 5: return '#003C97';
+        case 6: return '#00FFBF';
+        case 7: return '#7700FF';
+        case 8: return '#FF4985';
+        default: return '#9C27B0';
+      }
+    }
+
+    function renderTypeCell(participant) {
+      if (participant.typeIndex == null) return participant.typeLabel ? escapeHtml(participant.typeLabel) : '—';
+      const color = getTypeColor(participant.typeIndex);
+      const label = participant.typeLabel || `Вид ${participant.typeIndex}`;
+      return `<span class="type-box" style="background:${color}22;border-color:${color};color:${color}">${participant.typeIndex}</span><span>${escapeHtml(label)}</span>`;
     }
 
     bootstrap();
