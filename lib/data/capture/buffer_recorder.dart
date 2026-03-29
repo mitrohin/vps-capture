@@ -34,11 +34,35 @@ class BufferRecorder {
   final CaptureBackend _backend;
   Process? _process;
   int? _externalPid;
+  String? _externalFfmpegPath;
+  String? _externalSegmentsDir;
   Timer? _cleanupTimer;
   bool _isStopping = false;
   static const Duration _startupTimeout = Duration(seconds: 3);
 
-  bool get isRunning => _process != null || _externalPid != null;
+  bool get isRunning {
+    if (_process != null) {
+      return true;
+    }
+
+    final pid = _externalPid;
+    final ffmpegPath = _externalFfmpegPath;
+    final segmentsDir = _externalSegmentsDir;
+    if (pid == null || ffmpegPath == null || segmentsDir == null) {
+      return false;
+    }
+
+    final isAlive = _isTargetFfmpegProcessAliveSync(
+      pid: pid,
+      ffmpegPath: ffmpegPath,
+      segmentsDir: segmentsDir,
+    );
+    if (!isAlive) {
+      _clearExternalPidState();
+      unawaited(_clearProcessState());
+    }
+    return isAlive;
+  }
 
   Future<Directory> start(
     AppConfig config,
@@ -46,7 +70,7 @@ class BufferRecorder {
     void Function() onUnexpectedExit, {
     bool allowRecovery = false,
   }) async {
-    await stop();
+    await stop(clearProcessState: false);
     final segmentsDir = await _paths.segmentsDir();
 
     final orphanRecovered = await _handleOrphanedProcess(
@@ -210,7 +234,7 @@ class BufferRecorder {
     ];
   }
 
-  Future<void> stop() async {
+  Future<void> stop({bool clearProcessState = true}) async {
     _cleanupTimer?.cancel();
     _cleanupTimer = null;
     _isStopping = true;
@@ -226,18 +250,22 @@ class BufferRecorder {
         _process = null;
       }
       _isStopping = false;
-      await _clearProcessState();
+      if (clearProcessState) {
+        await _clearProcessState();
+      }
       return;
     }
 
     final externalPid = _externalPid;
     if (externalPid != null) {
       await _terminatePid(externalPid);
-      _externalPid = null;
+      _clearExternalPidState();
     }
 
     _isStopping = false;
-    await _clearProcessState();
+    if (clearProcessState) {
+      await _clearProcessState();
+    }
   }
 
   Future<bool> _handleOrphanedProcess({
@@ -271,6 +299,8 @@ class BufferRecorder {
 
     if (allowRecovery) {
       _externalPid = pid;
+      _externalFfmpegPath = ffmpegPath;
+      _externalSegmentsDir = segmentsDir.path;
       onLog('Recovered running ffmpeg process (pid=$pid) after an unexpected app shutdown.');
       return true;
     }
@@ -300,6 +330,37 @@ class BufferRecorder {
       }
 
       final result = await Process.run('ps', ['-p', '$pid', '-o', 'command=']);
+      if (result.exitCode != 0) return false;
+      final commandLine = (result.stdout as String).trim().toLowerCase();
+      if (commandLine.isEmpty) return false;
+
+      final normalizedFfmpegPath = ffmpegPath.toLowerCase();
+      return (commandLine.contains(normalizedFfmpegPath) || commandLine.contains('ffmpeg')) &&
+          commandLine.contains(segmentsDir.toLowerCase());
+    } catch (_) {
+      return false;
+    }
+  }
+
+  bool _isTargetFfmpegProcessAliveSync({
+    required int pid,
+    required String ffmpegPath,
+    required String segmentsDir,
+  }) {
+    try {
+      if (Platform.isWindows) {
+        final result = Process.runSync('powershell', [
+          '-NoProfile',
+          '-Command',
+          '(Get-CimInstance Win32_Process -Filter "ProcessId = $pid").CommandLine',
+        ]);
+        if (result.exitCode != 0) return false;
+        final commandLine = (result.stdout as String).trim().toLowerCase();
+        if (commandLine.isEmpty) return false;
+        return commandLine.contains('ffmpeg') && commandLine.contains(segmentsDir.toLowerCase());
+      }
+
+      final result = Process.runSync('ps', ['-p', '$pid', '-o', 'command=']);
       if (result.exitCode != 0) return false;
       final commandLine = (result.stdout as String).trim().toLowerCase();
       if (commandLine.isEmpty) return false;
@@ -390,6 +451,12 @@ class BufferRecorder {
     if (await file.exists()) {
       await file.delete();
     }
+  }
+
+  void _clearExternalPidState() {
+    _externalPid = null;
+    _externalFfmpegPath = null;
+    _externalSegmentsDir = null;
   }
 
   Future<void> _cleanSegments(Directory dir, {required int maxAgeMinutes}) async {
