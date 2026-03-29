@@ -18,6 +18,7 @@ class ClipExporter {
     required String id,
     required String fio,
     required String city,
+    String? overwriteOutputPath,
     required void Function(String line) onLog,
   }) async {
     final segmentsDir = await _paths.segmentsDir();
@@ -33,9 +34,11 @@ class ClipExporter {
     final content = files.map((f) => "file '${f.path.replaceAll("'", "''")}'").join('\n');
     await listFile.writeAsString(content);
 
-    final outputName = FileNamer.outputClipName(id:id ,fio: fio, city: city);
-    final outputFolder = getOutputDir(config.outputDir!, id);
-    final outputPath = p.join(outputFolder!, outputName);
+    final outputPath = overwriteOutputPath ?? (() {
+      final outputName = FileNamer.outputClipName(id:id ,fio: fio, city: city);
+      final outputFolder = getOutputDir(config.outputDir!, id);
+      return p.join(outputFolder!, outputName);
+    })();
 
     final copyArgs = [
       '-f',

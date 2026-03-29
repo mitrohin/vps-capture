@@ -155,13 +155,27 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
     _selectPrioritizedItem(next.schedule);
   }
   
-  void _handleStartWithGif(int globalIndex) {
+  Future<void> _handleStartWithGif(int globalIndex) async {
+    if (globalIndex < 0) {
+      return;
+    }
     final controller = ref.read(appControllerProvider.notifier);
     final state = ref.read(appControllerProvider);
-    
-    unawaited(controller.startMark(globalIndex));
-    
+    if (globalIndex >= state.schedule.length) {
+      return;
+    }
+
     final item = state.schedule[globalIndex];
+    var confirmedOverwrite = false;
+    if (item.status == ScheduleItemStatus.done) {
+      confirmedOverwrite = await _confirmOverwriteDone(item);
+      if (!confirmedOverwrite) {
+        return;
+      }
+    }
+
+    unawaited(controller.startMark(globalIndex, confirmedOverwrite));
+
     if (_gifTitresKey.currentState != null) {
       _gifTitresKey.currentState!.scheduleGifDisplay(
         fio: item.fio,
@@ -170,6 +184,30 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
         customDelay: _gifTitresKey.currentState!.currentDelay,
       );
     }
+  }
+
+  Future<bool> _confirmOverwriteDone(ScheduleItem item) async {
+    final languageCode = ref.read(appControllerProvider).config.languageCode;
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(AppLocalizations.tr(languageCode, 'overwriteDoneTitle')),
+        content: Text(
+          '${AppLocalizations.tr(languageCode, 'overwriteDoneMessage')}\n\n${item.label}',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(AppLocalizations.tr(languageCode, 'cancel')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(AppLocalizations.tr(languageCode, 'overwriteDoneConfirm')),
+          ),
+        ],
+      ),
+    );
+    return result == true;
   }
 
   List<int> _getAvailableThreads(List<ScheduleItem> items) {
@@ -773,13 +811,13 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
               } else {
                 final currentSelectedIndex = state.selectedIndex;
                 if (currentSelectedIndex != null) {
-                  _handleStartWithGif(currentSelectedIndex);
+                  unawaited(_handleStartWithGif(currentSelectedIndex));
                 } else {
                   final filtered = _getFilteredItems(state.schedule);
                   if (filtered.isNotEmpty) {
                     final globalIndex = getGlobalIndex(0);
                     if (globalIndex != -1) {
-                      _handleStartWithGif(globalIndex);
+                      unawaited(_handleStartWithGif(globalIndex));
                     }
                   }
                 }
@@ -878,7 +916,7 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
                                               if (state.isRecordingMarked) {
                                                 controller.stopMark();
                                               } else {
-                                                _handleStartWithGif(selectedGlobalIndex!);
+                                                unawaited(_handleStartWithGif(selectedGlobalIndex!));
                                               }
                                             },
                                       isPrimary: true,
@@ -1047,7 +1085,7 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
                                                   if (state.isRecordingMarked) {
                                                     controller.stopMark();
                                                   } else {
-                                                    _handleStartWithGif(selectedGlobalIndex!);
+                                                    unawaited(_handleStartWithGif(selectedGlobalIndex!));
                                                   }
                                                 },
                                           isPrimary: true,

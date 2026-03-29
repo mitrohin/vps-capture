@@ -1,4 +1,4 @@
-enum ScheduleItemStatus { pending, active, done, postponed }
+enum ScheduleItemStatus { pending, active, saving, done, postponed }
 
 class ScheduleItem {
   ScheduleItem({

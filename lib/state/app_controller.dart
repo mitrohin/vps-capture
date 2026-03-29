@@ -526,6 +526,8 @@ class AppController extends StateNotifier<AppState> {
         return ScheduleItemStatus.pending;
       case 'active':
         return ScheduleItemStatus.active;
+      case 'saving':
+        return ScheduleItemStatus.saving;
       case 'done':
         return ScheduleItemStatus.done;
       case 'postponed':
@@ -594,12 +596,24 @@ class AppController extends StateNotifier<AppState> {
     await prepareSetupScreen();
   }
 
-  Future<void> startMark([int? index]) async {
+  Future<void> startMark([int? index, bool confirmedOverwrite = false]) async {
     final targetIndex = index ?? state.selectedIndex;
     if (targetIndex == null || targetIndex < 0 || targetIndex >= state.schedule.length) return;
     final item = state.schedule[targetIndex];
     if (state.isRecordingMarked) {
       _appendLog('Cannot START: recording already marked.');
+      return;
+    }
+    final canStart =
+        item.status == ScheduleItemStatus.pending ||
+        item.status == ScheduleItemStatus.postponed ||
+        item.status == ScheduleItemStatus.done;
+    if (!canStart) {
+      _appendLog('Cannot START: participant ${item.label} is in ${item.status.name} status.');
+      return;
+    }
+    if (item.status == ScheduleItemStatus.done && !confirmedOverwrite) {
+      _appendLog('Cannot START: overwrite confirmation is required for ${item.label}.');
       return;
     }
 
@@ -610,6 +624,9 @@ class AppController extends StateNotifier<AppState> {
       }
 
       final start = DateTime.now();
+      final overwriteClipPath = item.status == ScheduleItemStatus.done
+          ? _clipIndex.latestForParticipant(item.id)?.path
+          : null;
       final updated = [...state.schedule];
       updated[targetIndex] = item.copyWith(
         status: ScheduleItemStatus.active,
@@ -620,7 +637,11 @@ class AppController extends StateNotifier<AppState> {
         selectedIndex: targetIndex,
         isRecordingMarked: true,
         currentMarkStartedAt: start,
+        currentOverwriteClipPath: overwriteClipPath,
       );
+      if (overwriteClipPath != null) {
+        _appendLog('START confirmed for ${item.label}. Existing clip will be overwritten: $overwriteClipPath');
+      }
       await _updateScheduleItemInFile(updated[targetIndex]);
       _appendLog('START marked for ${item.label}. Buffer recording started.');
       await _syncJudgeWebServer();
@@ -632,66 +653,95 @@ class AppController extends StateNotifier<AppState> {
     if (activeIndex == -1) return;
     if (index != null && index != activeIndex) return;
     final item = state.schedule[activeIndex];
+    final overwriteClipPath = state.currentOverwriteClipPath;
     if (!state.isRecordingMarked || state.currentMarkStartedAt == null) {
       _appendLog('Cannot STOP: no active START mark.');
       return;
     }
 
-    await _guard(() async {
-      final stop = DateTime.now();
+    final markStartedAt = state.currentMarkStartedAt!;
+    final stop = DateTime.now();
+    final updated = [...state.schedule];
+    updated[activeIndex] = item.copyWith(
+      status: ScheduleItemStatus.saving,
+      startedAt: markStartedAt,
+    );
+    final nextIndex = _findNextReady(updated, activeIndex);
+    state = state.copyWith(
+      schedule: updated,
+      isRecordingMarked: false,
+      clearMarkStart: true,
+      selectedIndex: nextIndex,
+    );
+    _appendLog('STOP marked for ${item.label}. Saving clip to disk in background...');
+    unawaited(_syncJudgeWebServer());
+    unawaited(_completeStopMarkInBackground(
+      item: item,
+      markStartedAt: markStartedAt,
+      stop: stop,
+      activeIndex: activeIndex,
+      overwriteClipPath: overwriteClipPath,
+    ));
+  }
 
-      try {
-        final out = await _capture.exportClip(
-          config: state.config,
-          start: state.currentMarkStartedAt!,
-          stop: stop,
-          id: item.id,
-          fio: item.fio,
-          city: item.city,
-          onLog: _appendLog,
-        );
-        final updated = [...state.schedule];
-        updated[activeIndex] = item.copyWith(
-          status: ScheduleItemStatus.done, 
-          startedAt: state.currentMarkStartedAt,
-        );
-        await _clipIndex.add(
-          participantId: item.id,
-          fio: item.fio,
-          city: item.city,
-          apparatus: item.apparatus,
-          path: out,
-          threadIndex: item.threadIndex,
-          typeIndex: item.typeIndex,
-        );
-        final nextIndex = _findNextReady(updated, activeIndex);
-        state = state.copyWith(
-          schedule: updated,
-          isRecordingMarked: false,
-          clearMarkStart: true,
-          selectedIndex: nextIndex,
-        );
-        await _updateScheduleItemInFile(updated[activeIndex]);
-        _appendLog('STOP complete, clip saved: $out');
-        await _syncJudgeWebServer();
-      } catch (_) {
-        final updated = [...state.schedule];
-        updated[activeIndex] = item.copyWith(
+  Future<void> _completeStopMarkInBackground({
+    required ScheduleItem item,
+    required DateTime markStartedAt,
+    required DateTime stop,
+    required int activeIndex,
+    required String? overwriteClipPath,
+  }) async {
+    try {
+      final out = await _capture.exportClip(
+        config: state.config,
+        start: markStartedAt,
+        stop: stop,
+        id: item.id,
+        fio: item.fio,
+        city: item.city,
+        overwriteOutputPath: overwriteClipPath,
+        onLog: _appendLog,
+      );
+      final updated = [...state.schedule];
+      if (activeIndex >= updated.length || updated[activeIndex].id != item.id) {
+        _appendLog('STOP save completed for ${item.label}, but schedule position has changed.');
+        return;
+      }
+      updated[activeIndex] = updated[activeIndex].copyWith(
+        status: ScheduleItemStatus.done,
+        startedAt: markStartedAt,
+      );
+      await _clipIndex.add(
+        participantId: item.id,
+        fio: item.fio,
+        city: item.city,
+        apparatus: item.apparatus,
+        path: out,
+        threadIndex: item.threadIndex,
+        typeIndex: item.typeIndex,
+      );
+      state = state.copyWith(schedule: updated);
+      await _updateScheduleItemInFile(updated[activeIndex]);
+      _appendLog('STOP complete, clip saved: $out');
+      await _syncJudgeWebServer();
+    } catch (e, st) {
+      final updated = [...state.schedule];
+      if (activeIndex < updated.length && updated[activeIndex].id == item.id) {
+        updated[activeIndex] = updated[activeIndex].copyWith(
           status: item.isPinnedToPostponed
               ? ScheduleItemStatus.postponed
               : ScheduleItemStatus.pending,
           clearStartedAt: true,
         );
-        state = state.copyWith(
-          schedule: updated,
-          isRecordingMarked: false,
-          clearMarkStart: true,
-        );
+        state = state.copyWith(schedule: updated);
         await _updateScheduleItemInFile(updated[activeIndex]);
-        await _syncJudgeWebServer();
-        rethrow;
       }
-    });
+      _appendLog('ERROR while saving clip for ${item.label}: $e');
+      if (kDebugMode) {
+        _appendLog('$st');
+      }
+      await _syncJudgeWebServer();
+    }
   }
 
   Future<void> postpone([int? index]) async {
@@ -1205,14 +1255,16 @@ class AppController extends StateNotifier<AppState> {
     switch (status) {
       case 'active':
         return 0;
-      case 'done':
+      case 'saving':
         return 1;
-      case 'pending':
+      case 'done':
         return 2;
-      case 'postponed':
+      case 'pending':
         return 3;
-      default:
+      case 'postponed':
         return 4;
+      default:
+        return 5;
     }
   }
 
