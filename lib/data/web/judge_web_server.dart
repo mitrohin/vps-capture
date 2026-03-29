@@ -225,25 +225,30 @@ class JudgeWebServer {
     .summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-top: 20px; }
     .stat { background: #171c24; border: 1px solid #2a3442; border-radius: 18px; padding: 16px; }
     .stat strong { display: block; font-size: 28px; margin-top: 8px; }
-    .toolbar { display: flex; flex-wrap: wrap; gap: 12px; margin: 20px 0; }
-    .toolbar input, .toolbar select { background: #171c24; color: #fff; border: 1px solid #334155; border-radius: 12px; padding: 12px 14px; font-size: 16px; }
-    .list { display: grid; gap: 14px; }
-    .card { background: linear-gradient(180deg, #171c24, #121720); border: 1px solid #2d3748; border-radius: 18px; padding: 18px; box-shadow: 0 12px 28px rgba(0, 0, 0, .24); }
-    .card.done { border-color: #1f8f5f; }
-    .card.active { border-color: #f59e0b; }
-    .row { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; align-items: flex-start; }
-    .name { font-size: 28px; font-weight: 700; margin: 0; }
-    .meta { margin-top: 10px; color: #bdd0e5; display: flex; flex-wrap: wrap; gap: 8px; }
-    .chip, .status { display: inline-flex; align-items: center; border-radius: 999px; padding: 6px 12px; font-weight: 700; }
-    .chip { background: #253042; color: #d9e6f5; }
+    .toolbar { display: flex; gap: 12px; margin: 20px 0; width: 100%; }
+    .toolbar input, .toolbar select { background: #171c24; color: #fff; border: 1px solid #334155; border-radius: 12px; padding: 12px 14px; font-size: 16px; min-width: 0; }
+    .toolbar input { flex: 1 1 auto; }
+    .toolbar select { flex: 0 0 220px; }
+    .list { display: grid; gap: 16px; }
+    .thread-group { border: 1px solid #2d3748; border-radius: 16px; overflow: hidden; background: #121720; }
+    .thread-title { margin: 0; font-size: 22px; padding: 12px 14px; background: #1a2230; border-bottom: 1px solid #2d3748; }
+    .thread-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+    .thread-table th, .thread-table td { padding: 10px 12px; border-bottom: 1px solid #243041; text-align: left; vertical-align: middle; font-size: 14px; }
+    .thread-table th { font-size: 12px; color: #9fb0c6; text-transform: uppercase; letter-spacing: .04em; }
+    .thread-table tr:last-child td { border-bottom: none; }
+    .athlete { font-weight: 700; font-size: 15px; }
+    .type-badge { width: 28px; height: 28px; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; font-weight: 700; border: 1px solid; }
+    .extra { color: #bdd0e5; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .status { display: inline-flex; align-items: center; border-radius: 999px; padding: 6px 10px; font-weight: 700; font-size: 12px; }
     .status.pending { background: #334155; }
     .status.active { background: #8a5a00; }
     .status.done { background: #0f6e48; }
     .status.postponed { background: #6b2147; }
-    .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
-    button { cursor: pointer; border: none; border-radius: 12px; padding: 12px 16px; font-size: 16px; font-weight: 700; }
+    button { cursor: pointer; border: none; border-radius: 10px; padding: 10px 14px; font-size: 14px; font-weight: 700; white-space: nowrap; }
     button.primary { background: #22c55e; color: #04120a; }
     button.secondary { background: #334155; color: #fff; }
+    .open-btn { display: inline-flex; align-items: center; gap: 8px; }
+    .open-btn .play-icon { font-size: 12px; line-height: 1; }
     button:disabled { opacity: .45; cursor: default; }
     .empty { text-align: center; padding: 56px 20px; background: #171c24; border: 1px dashed #334155; border-radius: 18px; color: #9fb0c6; }
     dialog { width: min(1100px, calc(100vw - 24px)); border: 1px solid #334155; border-radius: 20px; background: #0f131a; color: #fff; padding: 0; }
@@ -254,10 +259,16 @@ class JudgeWebServer {
     .hint { color: #9fb0c6; font-size: 14px; }
     @media (max-width: 720px) {
       .shell { padding: 16px; }
-      .name { font-size: 22px; }
       .title h1 { font-size: 28px; }
-      .toolbar { flex-direction: column; }
-      .toolbar input, .toolbar select { width: 100%; box-sizing: border-box; }
+      .toolbar { flex-wrap: wrap; }
+      .toolbar input { flex-basis: 100%; }
+      .toolbar select { flex: 1 1 calc(50% - 6px); }
+      .thread-table thead { display: none; }
+      .thread-table, .thread-table tbody, .thread-table tr, .thread-table td { display: block; width: 100%; box-sizing: border-box; }
+      .thread-table tr { border-bottom: 1px solid #243041; padding: 10px 0; }
+      .thread-table tr:last-child { border-bottom: none; }
+      .thread-table td { border-bottom: none; padding: 6px 12px; }
+      .thread-table td::before { content: attr(data-label); display: block; font-size: 11px; color: #9fb0c6; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 3px; }
     }
   </style>
 </head>
@@ -372,16 +383,6 @@ class JudgeWebServer {
       schedulePolling();
     }
 
-    function compareParticipantsByDateDesc(left, right) {
-      const leftTime = left.startedAt ? Date.parse(left.startedAt) : NaN;
-      const rightTime = right.startedAt ? Date.parse(right.startedAt) : NaN;
-      const leftHasTime = Number.isFinite(leftTime);
-      const rightHasTime = Number.isFinite(rightTime);
-      if (leftHasTime && rightHasTime && leftTime !== rightTime) return rightTime - leftTime;
-      if (leftHasTime !== rightHasTime) return leftHasTime ? -1 : 1;
-      return 0;
-    }
-
     function render() {
       const snapshot = state.snapshot;
       if (!snapshot) return;
@@ -422,35 +423,70 @@ class JudgeWebServer {
           if (!state.search) return true;
           const haystack = `${participant.fio} ${participant.city} ${participant.apparatus ?? ''}`.toLowerCase();
           return haystack.includes(state.search);
-        })
-        .slice()
-        .sort(compareParticipantsByDateDesc);
+        });
 
       if (!visible.length) {
         cards.innerHTML = `<div class="empty">${escapeHtml(t.judgeEmpty)}</div>`;
         return;
       }
 
-      cards.innerHTML = visible.map((participant) => `
-        <article class="card ${participant.status}">
-          <div class="row">
-            <div>
-              <h2 class="name">${escapeHtml(participant.fio)}</h2>
-              <div class="meta">
-                <span class="chip">${escapeHtml(participant.city)}</span>
-                ${participant.apparatus ? `<span class="chip">${escapeHtml(participant.apparatus)}</span>` : ''}
-                ${participant.threadLabel ? `<span class="chip">${escapeHtml(participant.threadLabel)}</span>` : ''}
-                ${participant.typeLabel ? `<span class="chip">${escapeHtml(participant.typeLabel)}</span>` : ''}
-                <span class="status ${participant.status}">${escapeHtml(participant.statusLabel)}</span>
-              </div>
-            </div>
-            <div class="hint">${participant.startedAtLabel ? `${escapeHtml(t.judgeStartedAt)}: ${escapeHtml(participant.startedAtLabel)}` : ''}</div>
-          </div>
-          <div class="actions">
-            <button class="primary" ${participant.clipId ? '' : 'disabled'} data-clip-id="${participant.clipId ?? ''}" data-title="${escapeHtmlAttr(participant.fio)}" data-meta="${escapeHtmlAttr([participant.city, participant.apparatus, participant.threadLabel, participant.typeLabel].filter(Boolean).join(' • '))}">${escapeHtml(participant.clipId ? t.judgeOpenReplay : t.judgeReplayMissing)}</button>
-          </div>
-        </article>
-      `).join('');
+      const groupedByThread = new Map();
+      visible.forEach((participant) => {
+        const threadKey = participant.threadIndex ?? -1;
+        if (!groupedByThread.has(threadKey)) groupedByThread.set(threadKey, []);
+        groupedByThread.get(threadKey).push(participant);
+      });
+
+      const sortedThreadKeys = Array.from(groupedByThread.keys()).sort((left, right) => {
+        if (left === -1) return 1;
+        if (right === -1) return -1;
+        return left - right;
+      });
+
+      cards.innerHTML = sortedThreadKeys.map((threadKey) => {
+        const threadParticipants = groupedByThread.get(threadKey) || [];
+        const threadLabel = threadKey === -1
+          ? t.judgeThreadAll
+          : `Поток ${Number(threadKey) + 1}`;
+
+        return `
+          <section class="thread-group">
+            <h2 class="thread-title">${escapeHtml(threadLabel)}</h2>
+            <table class="thread-table">
+              <thead>
+                <tr>
+                  <th>Вид</th>
+                  <th>ФИО</th>
+                  <th>Доп. информация</th>
+                  <th>Статус</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                ${threadParticipants.map((participant) => {
+                  const details = [participant.city, participant.apparatus, participant.startedAtLabel]
+                    .filter(Boolean)
+                    .join(' • ');
+                  return `
+                    <tr>
+                      <td data-label="Вид">${renderTypeCell(participant)}</td>
+                      <td data-label="ФИО"><span class="athlete">${escapeHtml(participant.fio)}</span></td>
+                      <td data-label="Доп. информация"><span class="extra">${escapeHtml(details || '—')}</span></td>
+                      <td data-label="Статус"><span class="status ${participant.status}">${escapeHtml(participant.statusLabel)}</span></td>
+                      <td data-label="Повтор">
+                        <button class="primary open-btn" ${participant.clipId ? '' : 'disabled'} data-clip-id="${participant.clipId ?? ''}" data-title="${escapeHtmlAttr(participant.fio)}" data-meta="${escapeHtmlAttr([participant.city, participant.apparatus, participant.threadLabel, participant.typeLabel].filter(Boolean).join(' • '))}">
+                          <span class="play-icon">▶</span>
+                          <span>${escapeHtml(t.judgeOpenReplay)}</span>
+                        </button>
+                      </td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+          </section>
+        `;
+      }).join('');
 
       cards.querySelectorAll('button[data-clip-id]').forEach((button) => {
         button.addEventListener('click', () => {
@@ -484,6 +520,39 @@ class JudgeWebServer {
 
     function escapeHtmlAttr(value) {
       return escapeHtml(value).replaceAll('`', '&#96;');
+    }
+
+    function renderTypeCell(participant) {
+      if (participant.typeIndex == null) {
+        return '<span class="extra">—</span>';
+      }
+      const color = getTypeColor(participant.typeIndex);
+      return `<span class="type-badge" style="color:${color};border-color:${color};background:${withAlpha(color, 0.2)}">${escapeHtml(participant.typeLabel || String(participant.typeIndex))}</span>`;
+    }
+
+    function getTypeColor(typeIndex) {
+      switch (typeIndex) {
+        case 1: return '#4CAF50';
+        case 2: return '#2196F3';
+        case 3: return '#FF9800';
+        case 4: return '#E91E63';
+        case 5: return '#003C97';
+        case 6: return '#00FFBF';
+        case 7: return '#7700FF';
+        case 8: return '#FF4985';
+        default: return '#9C27B0';
+      }
+    }
+
+    function withAlpha(hexColor, alpha) {
+      const normalized = hexColor.replace('#', '');
+      const fullHex = normalized.length === 3
+        ? normalized.split('').map((char) => char + char).join('')
+        : normalized;
+      const red = parseInt(fullHex.slice(0, 2), 16);
+      const green = parseInt(fullHex.slice(2, 4), 16);
+      const blue = parseInt(fullHex.slice(4, 6), 16);
+      return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
     }
 
     bootstrap();
