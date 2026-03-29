@@ -84,6 +84,7 @@ class AppController extends StateNotifier<AppState> {
   Timer? _livePreviewTimer;
   Future<void>? _shutdownFuture;
   bool _livePreviewFrameUpdateInFlight = false;
+  bool _isClipExportInProgress = false;
 
   LocalPreferences? _prefs;
 
@@ -604,6 +605,10 @@ class AppController extends StateNotifier<AppState> {
       _appendLog('Cannot START: recording already marked.');
       return;
     }
+    if (_isClipExportInProgress) {
+      _appendLog('Cannot START: previous clip is still being saved to disk.');
+      return;
+    }
     final canStart =
         item.status == ScheduleItemStatus.pending ||
         item.status == ScheduleItemStatus.postponed ||
@@ -674,12 +679,12 @@ class AppController extends StateNotifier<AppState> {
       selectedIndex: nextIndex,
     );
     _appendLog('STOP marked for ${item.label}. Saving clip to disk in background...');
+    _isClipExportInProgress = true;
     unawaited(_syncJudgeWebServer());
     unawaited(_completeStopMarkInBackground(
       item: item,
       markStartedAt: markStartedAt,
       stop: stop,
-      activeIndex: activeIndex,
       overwriteClipPath: overwriteClipPath,
     ));
   }
@@ -688,7 +693,6 @@ class AppController extends StateNotifier<AppState> {
     required ScheduleItem item,
     required DateTime markStartedAt,
     required DateTime stop,
-    required int activeIndex,
     required String? overwriteClipPath,
   }) async {
     try {
@@ -703,14 +707,17 @@ class AppController extends StateNotifier<AppState> {
         onLog: _appendLog,
       );
       final updated = [...state.schedule];
-      if (activeIndex >= updated.length || updated[activeIndex].id != item.id) {
-        _appendLog('STOP save completed for ${item.label}, but schedule position has changed.');
-        return;
+      final currentIndex = updated.indexWhere((entry) => entry.id == item.id);
+      if (currentIndex != -1) {
+        updated[currentIndex] = updated[currentIndex].copyWith(
+          status: ScheduleItemStatus.done,
+          startedAt: markStartedAt,
+        );
+        state = state.copyWith(schedule: updated);
+        await _updateScheduleItemInFile(updated[currentIndex]);
+      } else {
+        _appendLog('STOP save completed for ${item.label}. Participant is no longer in schedule.');
       }
-      updated[activeIndex] = updated[activeIndex].copyWith(
-        status: ScheduleItemStatus.done,
-        startedAt: markStartedAt,
-      );
       await _clipIndex.add(
         participantId: item.id,
         fio: item.fio,
@@ -720,27 +727,28 @@ class AppController extends StateNotifier<AppState> {
         threadIndex: item.threadIndex,
         typeIndex: item.typeIndex,
       );
-      state = state.copyWith(schedule: updated);
-      await _updateScheduleItemInFile(updated[activeIndex]);
       _appendLog('STOP complete, clip saved: $out');
       await _syncJudgeWebServer();
     } catch (e, st) {
       final updated = [...state.schedule];
-      if (activeIndex < updated.length && updated[activeIndex].id == item.id) {
-        updated[activeIndex] = updated[activeIndex].copyWith(
+      final currentIndex = updated.indexWhere((entry) => entry.id == item.id);
+      if (currentIndex != -1) {
+        updated[currentIndex] = updated[currentIndex].copyWith(
           status: item.isPinnedToPostponed
               ? ScheduleItemStatus.postponed
               : ScheduleItemStatus.pending,
           clearStartedAt: true,
         );
         state = state.copyWith(schedule: updated);
-        await _updateScheduleItemInFile(updated[activeIndex]);
+        await _updateScheduleItemInFile(updated[currentIndex]);
       }
       _appendLog('ERROR while saving clip for ${item.label}: $e');
       if (kDebugMode) {
         _appendLog('$st');
       }
       await _syncJudgeWebServer();
+    } finally {
+      _isClipExportInProgress = false;
     }
   }
 
