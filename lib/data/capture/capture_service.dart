@@ -11,9 +11,15 @@ class CaptureService {
   Future<void> startBuffer(
     AppConfig config,
     void Function(String line) onLog,
-    void Function() onUnexpectedExit,
-  ) {
-    return _bufferRecorder.start(config, onLog, onUnexpectedExit);
+    void Function() onUnexpectedExit, {
+    bool allowRecovery = false,
+  }) {
+    return _bufferRecorder.start(
+      config,
+      onLog,
+      onUnexpectedExit,
+      allowRecovery: allowRecovery,
+    );
   }
 
   Future<void> stopBuffer() => _bufferRecorder.stop();
