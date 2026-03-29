@@ -99,8 +99,9 @@ class AppController extends StateNotifier<AppState> {
     final cfg = _buildConfigFromPrefs(located);
     await _clipIndex.load();
     state = state.copyWith(config: cfg);
-    await _syncCaptureInitialization(forceRestart: false);
     await loadScheduleFromFile();
+    _restoreRecordingMarkFromSchedule();
+    await _syncCaptureInitialization(forceRestart: false, allowRecovery: state.isRecordingMarked);
     await _syncJudgeWebServer(forceRestart: false);
     if (hasCompletedFirstLaunch && cfg.isComplete) {
       await enterWorkMode();
@@ -162,6 +163,7 @@ class AppController extends StateNotifier<AppState> {
     await _persistConfig(config);
     await _syncCaptureInitialization(
       forceRestart: _requiresCaptureRestart(previousConfig, config),
+      allowRecovery: false,
     );
     await _syncJudgeWebServer(forceRestart: state.mode == AppMode.work);
   }
@@ -588,7 +590,7 @@ class AppController extends StateNotifier<AppState> {
       clearMarkStart: true,
       judgeWebServerStatus: const JudgeWebServerStatus(),
     );
-    await _syncCaptureInitialization(forceRestart: false);
+    await _syncCaptureInitialization(forceRestart: false, allowRecovery: false);
     await prepareSetupScreen();
   }
 
@@ -602,7 +604,7 @@ class AppController extends StateNotifier<AppState> {
     }
 
     await _guard(() async {
-      await _syncCaptureInitialization(forceRestart: false);
+      await _syncCaptureInitialization(forceRestart: false, allowRecovery: false);
       if (!_capture.isBufferRunning) {
         throw Exception('Capture stream is not initialized. Check selected devices and ffmpeg settings.');
       }
@@ -937,7 +939,7 @@ class AppController extends StateNotifier<AppState> {
         previous.ffmpegPreset != next.ffmpegPreset;
   }
 
-  Future<void> _syncCaptureInitialization({required bool forceRestart}) async {
+  Future<void> _syncCaptureInitialization({required bool forceRestart, required bool allowRecovery}) async {
     final config = state.config;
     if (!config.isComplete) {
       if (_capture.isBufferRunning) {
@@ -962,7 +964,12 @@ class AppController extends StateNotifier<AppState> {
     }
 
     try {
-      await _capture.startBuffer(config, _appendLog, _onBufferUnexpectedExit);
+      await _capture.startBuffer(
+        config,
+        _appendLog,
+        _onBufferUnexpectedExit,
+        allowRecovery: allowRecovery,
+      );
       state = state.copyWith(isCaptureInitialized: true);
       _appendLog('Capture stream initialized for ${config.selectedVideoDevice?.displayLabel ?? 'unknown device'}.');
       _startLivePreviewUpdates();
@@ -972,6 +979,28 @@ class AppController extends StateNotifier<AppState> {
         clearLivePreviewFramePath: true,
       );
       _appendLog('Failed to initialize capture stream: $error');
+    }
+  }
+
+
+  void _restoreRecordingMarkFromSchedule() {
+    final activeIndex = state.schedule.indexWhere((entry) => entry.status == ScheduleItemStatus.active);
+    if (activeIndex == -1) {
+      state = state.copyWith(
+        isRecordingMarked: false,
+        clearMarkStart: true,
+      );
+      return;
+    }
+
+    final startedAt = state.schedule[activeIndex].startedAt;
+    state = state.copyWith(
+      isRecordingMarked: startedAt != null,
+      currentMarkStartedAt: startedAt,
+      selectedIndex: activeIndex,
+    );
+    if (startedAt != null) {
+      _appendLog('Recovered active START mark from previous session: ${state.schedule[activeIndex].label}.');
     }
   }
 

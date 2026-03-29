@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
@@ -32,19 +33,38 @@ class BufferRecorder {
   final AppPaths _paths;
   final CaptureBackend _backend;
   Process? _process;
+  int? _externalPid;
   Timer? _cleanupTimer;
   bool _isStopping = false;
   static const Duration _startupTimeout = Duration(seconds: 3);
 
-  bool get isRunning => _process != null;
+  bool get isRunning => _process != null || _externalPid != null;
 
   Future<Directory> start(
     AppConfig config,
     void Function(String line) onLog,
-    void Function() onUnexpectedExit,
-  ) async {
+    void Function() onUnexpectedExit, {
+    bool allowRecovery = false,
+  }) async {
     await stop();
     final segmentsDir = await _paths.segmentsDir();
+
+    final orphanRecovered = await _handleOrphanedProcess(
+      ffmpegPath: config.ffmpegPath!,
+      segmentsDir: segmentsDir,
+      allowRecovery: allowRecovery,
+      onLog: onLog,
+    );
+
+    if (orphanRecovered) {
+      _isStopping = false;
+      _cleanupTimer?.cancel();
+      _cleanupTimer = Timer.periodic(const Duration(seconds: 10), (_) {
+        _cleanSegments(segmentsDir, maxAgeMinutes: config.bufferMinutes);
+      });
+      return segmentsDir;
+    }
+
     await _cleanSegments(segmentsDir, maxAgeMinutes: config.bufferMinutes);
     final inputArgsWithProbeFlags = _prependProbeFlagsToInput(_backend.buildInputArgs(config));
 
@@ -86,6 +106,13 @@ class BufferRecorder {
     }
 
     final process = _process!;
+    await _writeProcessState(
+      pid: process.pid,
+      ffmpegPath: config.ffmpegPath!,
+      segmentsDir: segmentsDir.path,
+      startedAt: DateTime.now().toUtc(),
+    );
+
     var startupCompleted = false;
     int? processExitCode;
 
@@ -100,6 +127,7 @@ class BufferRecorder {
       }
       _cleanupTimer?.cancel();
       _isStopping = false;
+      unawaited(_clearProcessState());
       if (isUnexpectedExit) onUnexpectedExit();
     });
 
@@ -116,6 +144,7 @@ class BufferRecorder {
       if (identical(_process, process)) {
         _process = null;
       }
+      await _clearProcessState();
       rethrow;
     }
 
@@ -184,17 +213,182 @@ class BufferRecorder {
   Future<void> stop() async {
     _cleanupTimer?.cancel();
     _cleanupTimer = null;
-    final process = _process;
-    if (process == null) return;
-
     _isStopping = true;
-    process.kill(ProcessSignal.sigint);
-    await process.exitCode.timeout(const Duration(seconds: 2), onTimeout: () {
-      process.kill();
-      return process.exitCode;
+
+    final process = _process;
+    if (process != null) {
+      process.kill(ProcessSignal.sigint);
+      await process.exitCode.timeout(const Duration(seconds: 2), onTimeout: () {
+        process.kill();
+        return process.exitCode;
+      });
+      if (identical(_process, process)) {
+        _process = null;
+      }
+      _isStopping = false;
+      await _clearProcessState();
+      return;
+    }
+
+    final externalPid = _externalPid;
+    if (externalPid != null) {
+      await _terminatePid(externalPid);
+      _externalPid = null;
+    }
+
+    _isStopping = false;
+    await _clearProcessState();
+  }
+
+  Future<bool> _handleOrphanedProcess({
+    required String ffmpegPath,
+    required Directory segmentsDir,
+    required bool allowRecovery,
+    required void Function(String line) onLog,
+  }) async {
+    final state = await _readProcessState();
+    if (state == null) {
+      return false;
+    }
+
+    final rawPid = state['pid'];
+    final pid = rawPid is int ? rawPid : (rawPid is num ? rawPid.toInt() : null);
+    if (pid == null) {
+      await _clearProcessState();
+      return false;
+    }
+
+    final isAlive = await _isTargetFfmpegProcessAlive(
+      pid: pid,
+      ffmpegPath: ffmpegPath,
+      segmentsDir: segmentsDir.path,
+    );
+
+    if (!isAlive) {
+      await _clearProcessState();
+      return false;
+    }
+
+    if (allowRecovery) {
+      _externalPid = pid;
+      onLog('Recovered running ffmpeg process (pid=$pid) after an unexpected app shutdown.');
+      return true;
+    }
+
+    onLog('Stopping stale ffmpeg process (pid=$pid) left after an unexpected app shutdown.');
+    await _terminatePid(pid);
+    await _clearProcessState();
+    return false;
+  }
+
+  Future<bool> _isTargetFfmpegProcessAlive({
+    required int pid,
+    required String ffmpegPath,
+    required String segmentsDir,
+  }) async {
+    try {
+      if (Platform.isWindows) {
+        final result = await Process.run('powershell', [
+          '-NoProfile',
+          '-Command',
+          '(Get-CimInstance Win32_Process -Filter "ProcessId = $pid").CommandLine',
+        ]);
+        if (result.exitCode != 0) return false;
+        final commandLine = (result.stdout as String).trim().toLowerCase();
+        if (commandLine.isEmpty) return false;
+        return commandLine.contains('ffmpeg') && commandLine.contains(segmentsDir.toLowerCase());
+      }
+
+      final result = await Process.run('ps', ['-p', '$pid', '-o', 'command=']);
+      if (result.exitCode != 0) return false;
+      final commandLine = (result.stdout as String).trim().toLowerCase();
+      if (commandLine.isEmpty) return false;
+
+      final normalizedFfmpegPath = ffmpegPath.toLowerCase();
+      return (commandLine.contains(normalizedFfmpegPath) || commandLine.contains('ffmpeg')) &&
+          commandLine.contains(segmentsDir.toLowerCase());
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<void> _terminatePid(int pid) async {
+    try {
+      if (Platform.isWindows) {
+        await Process.run('taskkill', ['/PID', '$pid', '/T', '/F']);
+        return;
+      }
+
+      Process.killPid(pid, ProcessSignal.sigint);
+      await Future.delayed(const Duration(seconds: 2));
+      final stillAlive = await _isPidAlive(pid);
+      if (stillAlive) {
+        Process.killPid(pid, ProcessSignal.sigkill);
+      }
+    } catch (_) {
+      // Best-effort cleanup.
+    }
+  }
+
+  Future<bool> _isPidAlive(int pid) async {
+    try {
+      if (Platform.isWindows) {
+        final result = await Process.run('tasklist', ['/FI', 'PID eq $pid']);
+        if (result.exitCode != 0) return false;
+        return (result.stdout as String).contains('$pid');
+      }
+
+      final result = await Process.run('ps', ['-p', '$pid']);
+      return result.exitCode == 0;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<File> _processStateFile() async {
+    final supportDir = await _paths.appSupportDir();
+    return File(p.join(supportDir.path, 'buffer_process_state.json'));
+  }
+
+  Future<void> _writeProcessState({
+    required int pid,
+    required String ffmpegPath,
+    required String segmentsDir,
+    required DateTime startedAt,
+  }) async {
+    final file = await _processStateFile();
+    final json = jsonEncode({
+      'pid': pid,
+      'ffmpegPath': ffmpegPath,
+      'segmentsDir': segmentsDir,
+      'startedAtUtc': startedAt.toIso8601String(),
     });
-    if (identical(_process, process)) {
-      _process = null;
+    await file.writeAsString(json, mode: FileMode.write, flush: true);
+  }
+
+  Future<Map<String, dynamic>?> _readProcessState() async {
+    final file = await _processStateFile();
+    if (!await file.exists()) {
+      return null;
+    }
+
+    try {
+      final raw = await file.readAsString();
+      final decoded = jsonDecode(raw);
+      if (decoded is Map<String, dynamic>) {
+        return decoded;
+      }
+    } catch (_) {
+      // Ignore broken state file.
+    }
+
+    return null;
+  }
+
+  Future<void> _clearProcessState() async {
+    final file = await _processStateFile();
+    if (await file.exists()) {
+      await file.delete();
     }
   }
 
