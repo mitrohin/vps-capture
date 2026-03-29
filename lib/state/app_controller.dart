@@ -56,7 +56,7 @@ final appControllerProvider = StateNotifierProvider<AppController, AppState>((re
 
 class AppController extends StateNotifier<AppState> {
   static const String currentAppVersion = '3.0.1';
-  static const Duration _livePreviewRefreshInterval = Duration(seconds: 3);
+  static const Duration _livePreviewRefreshInterval = Duration(seconds: 1);
 
   AppController(
     this._locator,

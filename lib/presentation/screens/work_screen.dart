@@ -84,6 +84,7 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
   final FocusNode _listFocusNode = FocusNode(debugLabel: 'participants_list_focus');
   bool _ctrlAltPostponeTriggered = false;
   bool _isFfmpegDialogVisible = false;
+  bool _isLivePreviewVisible = false;
   Uint8List? _lastPreviewFrameBytes;
 
   void _updateSelectedIndexAfterFilterChange() {
@@ -1030,6 +1031,7 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
                                     lang: lang,
                                     framePath: state.livePreviewFramePath,
                                     isCaptureInitialized: state.isCaptureInitialized,
+                                    isVisible: _isLivePreviewVisible,
                                   ),
                                   middleControls: SizedBox(
                                     width: 160,
@@ -1088,6 +1090,7 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
     required String lang,
     required String? framePath,
     required bool isCaptureInitialized,
+    required bool isVisible,
   }) {
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -1100,24 +1103,55 @@ class _WorkScreenState extends ConsumerState<WorkScreen> {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(10, 8, 10, 6),
-            child: Text(
-              AppLocalizations.tr(lang, 'previewTitle'),
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 20,
-                fontWeight: FontWeight.w600,
-              ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    AppLocalizations.tr(lang, 'previewTitle'),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  onPressed: () {
+                    setState(() {
+                      _isLivePreviewVisible = !_isLivePreviewVisible;
+                    });
+                  },
+                  tooltip: isVisible
+                      ? AppLocalizations.tr(lang, 'previewHide')
+                      : AppLocalizations.tr(lang, 'previewShow'),
+                  icon: Icon(
+                    isVisible ? Icons.visibility : Icons.visibility_off,
+                    color: Colors.white,
+                  ),
+                ),
+              ],
             ),
           ),
-          Expanded(
-            child: ClipRRect(
-              borderRadius: const BorderRadius.only(
-                bottomLeft: Radius.circular(8),
-                bottomRight: Radius.circular(8),
+          if (isVisible)
+            Expanded(
+              child: ClipRRect(
+                borderRadius: const BorderRadius.only(
+                  bottomLeft: Radius.circular(8),
+                  bottomRight: Radius.circular(8),
+                ),
+                child: _buildPreviewBody(framePath, isCaptureInitialized),
               ),
-              child: _buildPreviewBody(framePath, isCaptureInitialized),
             ),
-          ),
+          if (!isVisible)
+            Expanded(
+              child: Center(
+                child: Icon(
+                  Icons.visibility_off,
+                  color: Colors.white30,
+                  size: 42,
+                ),
+              ),
+            ),
         ],
       ),
     );
